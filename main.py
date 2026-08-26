@@ -954,8 +954,7 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
         f"✅ <b>Оплата подтверждена!</b>\n\n"
         f"📦 Товар: <b>{name}</b>\n"
         f"📅 Действует до: {expiry}\n\n"
-        f"💰 Баланс: {db.get_user_balance(user_id)}₽\n\n"
-        f"👇 Нажмите кнопку чтобы получить доступ к панели:",
+        f"💰 Баланс: {db.get_user_balance(user_id)}₽"
     )
 
     try:
@@ -966,21 +965,6 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
         )
     except:
         pass
-
-    # Просим клиента ввести user от панели
-    try:
-        await call.bot.send_message(
-            user_id,
-            "🔐 Введите ваш <b>User</b> от панели (логин):",
-            parse_mode="HTML"
-        )
-    except:
-        pass
-
-    # Устанавливаем state для пользователя
-    if state is not None:
-        await state.set_state(KeyRequest.waiting_for_user)
-        await state.update_data(product_name=name, purchased_key=key, purchased_password=password)
 
     db.cursor.execute('SELECT category FROM products WHERE id = ?', (product_id,))
     cat_row = db.cursor.fetchone()
