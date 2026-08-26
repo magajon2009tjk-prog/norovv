@@ -293,27 +293,12 @@ async def start(message: types.Message):
 # ---------- ПОПОЛНЕНИЕ БАЛАНСА ----------
 @router.message(lambda msg: msg.text == "💰 ПОПОЛНИТЬ БАЛАНС")
 async def show_payment_details(message: types.Message, state: FSMContext):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
-    ])
-    
-    await message.answer(
-        f"{PAYMENT_DETAILS}\n\n"
-        f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽",
-        reply_markup=keyboard
-    )
-
-@router.callback_query(lambda call: call.data == "send_screenshot")
-async def request_screenshot(call: types.CallbackQuery, state: FSMContext):
     await state.set_state(TopUp.waiting_for_amount)
-    await call.message.edit_text(
-        "💰 Введите сумму которую вы отправили:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
-        ])
+    await message.answer(
+        f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
+        f"Введите сумму которую желаете пополнить:",
+        reply_markup=main_keyboard()
     )
-    await call.answer()
 
 @router.message(TopUp.waiting_for_amount)
 async def process_amount(message: types.Message, state: FSMContext):
@@ -321,12 +306,31 @@ async def process_amount(message: types.Message, state: FSMContext):
     if not text.isdigit():
         await message.answer("❌ Введите только число, например: 500")
         return
-    await state.update_data(amount=int(text))
+    amount = int(text)
+    await state.update_data(amount=amount)
     await state.set_state(TopUp.waiting_for_screenshot)
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot_noop")],
+        [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+    ])
     await message.answer(
-        f"✅ Сумма: {text}₽\n\n📤 Теперь отправьте скриншот платежа:",
-        reply_markup=main_keyboard()
+        f"💵 Сумма к пополнению: <b>{amount}₽</b>\n\n"
+        f"{PAYMENT_DETAILS}\n"
+        f"После оплаты нажмите кнопку ниже и отправьте скриншот.",
+        reply_markup=keyboard,
+        parse_mode="HTML"
     )
+
+@router.callback_query(lambda call: call.data == "send_screenshot_noop")
+async def request_screenshot(call: types.CallbackQuery, state: FSMContext):
+    await call.message.edit_text(
+        "📤 Отправьте скриншот платежа:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+        ])
+    )
+    await call.answer()
 
 @router.message(TopUp.waiting_for_screenshot)
 async def process_screenshot(message: types.Message, state: FSMContext):
