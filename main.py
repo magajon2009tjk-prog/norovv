@@ -1319,6 +1319,7 @@ async def process_upload_file(message: types.Message, state: FSMContext):
     file_id = None
     file_type = None
 
+    # Поддержка пересланных сообщений и прямых файлов
     if message.document:
         file_id = message.document.file_id
         file_type = "document"
@@ -1331,9 +1332,24 @@ async def process_upload_file(message: types.Message, state: FSMContext):
     elif message.audio:
         file_id = message.audio.file_id
         file_type = "audio"
+    elif message.forward_from or message.forward_from_chat:
+        # Пересланное сообщение — ищем файл внутри него
+        if message.document:
+            file_id = message.document.file_id
+            file_type = "document"
+        elif message.photo:
+            file_id = message.photo[-1].file_id
+            file_type = "photo"
+        elif message.video:
+            file_id = message.video.file_id
+            file_type = "video"
 
     if not file_id:
-        await message.answer("❌ Отправьте файл (документ, фото, видео или аудио)")
+        await message.answer(
+            "❌ Файл не найден.\n\n"
+            "Отправьте файл <b>напрямую</b> (не пересылайте) — просто прикрепите файл через скрепку 📎",
+            parse_mode="HTML"
+        )
         return
 
     db.set_product_file(category, file_id, file_type)
