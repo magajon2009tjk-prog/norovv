@@ -403,7 +403,8 @@ async def topup_accept(call: types.CallbackQuery):
     await call.message.edit_caption(
         call.message.caption + f"\n\n✅ <b>Принято — зачислено {amount}₽</b>\n"
                                f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=None
     )
     await call.answer(f"✅ Зачислено {amount}₽")
 
@@ -428,7 +429,8 @@ async def topup_reject(call: types.CallbackQuery):
     await call.message.edit_caption(
         call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
                                f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=None
     )
     await call.answer("❌ Заявка отклонена")
 
