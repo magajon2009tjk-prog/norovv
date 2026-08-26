@@ -271,7 +271,7 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         await message.answer(
             "✅ Ваш скриншот отправлен на проверку!\n"
             "⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
-            "Если у вас возникли вопросы, обратитесь в техподдержку: @support_bot",
+            "Если у вас возникли вопросы, обратитесь в техподдержку: @NorovK1ng",
             reply_markup=main_keyboard()
         )
         await state.clear()
@@ -377,7 +377,10 @@ async def buy_product(call: types.CallbackQuery):
     # Сохраняем ключ
     expiry = db.add_key(key, user_id, password, days)
     
-    # Отправляем ключ
+    purchase_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    username = call.from_user.username or call.from_user.first_name
+
+    # Отправляем ключ пользователю
     await call.message.edit_text(
         f"✅ Поздравляем! Вы купили {name}\n\n"
         f"🔑 Ваш ключ доступа:\n<code>{key}</code>\n"
@@ -387,6 +390,27 @@ async def buy_product(call: types.CallbackQuery):
         parse_mode="HTML"
     )
     await call.answer("🎉 Покупка успешна!")
+
+    # Отправляем чек всем админам (лог покупки)
+    receipt = (
+        f"🧾 <b>ЧЕК О ПОКУПКЕ</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 Пользователь: @{username}\n"
+        f"🆔 ID: <code>{user_id}</code>\n"
+        f"🛒 Товар: {name}\n"
+        f"💳 Сумма: {price}₽\n"
+        f"🔑 Ключ: <code>{key}</code>\n"
+        f"🔒 Пароль: <code>{password}</code>\n"
+        f"📅 Действует до: {expiry}\n"
+        f"🕐 Время: {purchase_time}\n"
+        f"💰 Баланс после: {db.get_user_balance(user_id)}₽\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    for admin_id in ADMIN_IDS:
+        try:
+            await call.bot.send_message(admin_id, receipt, parse_mode="HTML")
+        except:
+            pass
 
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
@@ -497,9 +521,8 @@ async def process_key_check(message: types.Message, state: FSMContext):
 async def support(message: types.Message):
     await message.answer(
         "🔧 Техническая поддержка\n\n"
-        "Свяжитесь с нами:\n"
-        "📧 Email: support@example.com\n"
-        "📱 Telegram: @support_bot\n"
+        "По всем вопросам обращайтесь:\n"
+        "📱 Telegram: @NorovK1ng\n"
         "⏰ Время работы: 10:00 - 22:00 МСК\n\n"
         "💰 Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'",
         reply_markup=main_keyboard()
