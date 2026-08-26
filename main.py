@@ -75,6 +75,15 @@ class Database:
             )
         ''')
 
+        # Таблица файлов товаров
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS product_files (
+                category TEXT PRIMARY KEY,
+                file_id TEXT,
+                file_type TEXT
+            )
+        ''')
+
         # Таблица ключей
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS keys (
@@ -207,6 +216,17 @@ class Database:
     def close(self):
         self.conn.close()
 
+    def set_product_file(self, category, file_id, file_type):
+        self.cursor.execute(
+            'INSERT OR REPLACE INTO product_files (category, file_id, file_type) VALUES (?, ?, ?)',
+            (category, file_id, file_type)
+        )
+        self.conn.commit()
+
+    def get_product_file(self, category):
+        self.cursor.execute('SELECT file_id, file_type FROM product_files WHERE category = ?', (category,))
+        return self.cursor.fetchone()
+
     def is_processed(self, message_id):
         self.cursor.execute('SELECT 1 FROM processed_requests WHERE message_id = ?', (message_id,))
         return self.cursor.fetchone() is not None
@@ -283,6 +303,9 @@ class KeyCheck(StatesGroup):
 class TopUp(StatesGroup):
     waiting_for_amount = State()
     waiting_for_screenshot = State()
+
+class UploadFile(StatesGroup):
+    waiting_for_file = State()
 
 # ==================== РОУТЕРЫ ====================
 router = Router()
@@ -697,6 +720,26 @@ async def buy_product(call: types.CallbackQuery):
     )
     await call.answer("🎉 Покупка успешна!")
 
+    # Отправляем файл товара если есть
+    # Определяем категорию купленного товара
+    db.cursor.execute('SELECT category FROM products WHERE id = ?', (product_id,))
+    cat_row = db.cursor.fetchone()
+    if cat_row:
+        product_file = db.get_product_file(cat_row[0])
+        if product_file:
+            pf_id, pf_type = product_file
+            try:
+                if pf_type == "document":
+                    await call.bot.send_document(user_id, pf_id, caption="📦 Файл вашего товара")
+                elif pf_type == "photo":
+                    await call.bot.send_photo(user_id, pf_id, caption="📦 Файл вашего товара")
+                elif pf_type == "video":
+                    await call.bot.send_video(user_id, pf_id, caption="📦 Файл вашего товара")
+                elif pf_type == "audio":
+                    await call.bot.send_audio(user_id, pf_id, caption="📦 Файл вашего товара")
+            except Exception as e:
+                print(f"Ошибка отправки файла товара: {e}")
+
     # Отправляем чек в лог-чат
     receipt = (
         f"🧾 <b>ЧЕК О ПОКУПКЕ</b>\n"
@@ -966,6 +1009,70 @@ async def admin_stats(message: types.Message):
         f"🔑 Всего ключей: {keys_count}\n"
         f"💰 Общий баланс: {total_balance}₽"
     )
+
+# ==================== КОМАНДЫ ЗАГРУЗКИ ФАЙЛОВ ====================
+
+# Маппинг команд к категориям
+UPLOAD_COMMANDS = {
+    "basic":           "BASIC PC",
+    "aimbot":          "AIM BOT PC",
+    "private":         "PRIVATE PC",
+    "brmod":           "BR MOD PC",
+    "dripclient":      "DRIP CLIENT",
+    "hgcheats":        "HG CHEATS",
+    "primemod":        "PRIME MOD",
+    "flourite":        "FLOURITE PANEL IOS",
+    "migule":          "MIGULE PANEL IOS",
+    "proxy":           "PROXY IOS",
+    "sertificat":      "СЕРТИФИКАТ IOS",
+}
+
+def make_upload_handler(category):
+    async def handler(message: types.Message, state: FSMContext):
+        if message.from_user.id not in ADMIN_IDS:
+            await message.answer("⛔ У вас нет прав для этой команды")
+            return
+        await state.set_state(UploadFile.waiting_for_file)
+        await state.update_data(upload_category=category)
+        await message.answer(
+            f"📂 Категория: <b>{category}</b>\n\n"
+            f"Отправьте файл (документ, фото, архив) для этой категории.\n"
+            f"Он будет автоматически выдаваться клиентам при покупке.",
+            parse_mode="HTML"
+        )
+    return handler
+
+for cmd, cat in UPLOAD_COMMANDS.items():
+    router.message(Command(cmd))(make_upload_handler(cat))
+
+@router.message(UploadFile.waiting_for_file)
+async def process_upload_file(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    category = data.get("upload_category")
+
+    file_id = None
+    file_type = None
+
+    if message.document:
+        file_id = message.document.file_id
+        file_type = "document"
+    elif message.photo:
+        file_id = message.photo[-1].file_id
+        file_type = "photo"
+    elif message.video:
+        file_id = message.video.file_id
+        file_type = "video"
+    elif message.audio:
+        file_id = message.audio.file_id
+        file_type = "audio"
+
+    if not file_id:
+        await message.answer("❌ Отправьте файл (документ, фото, видео или аудио)")
+        return
+
+    db.set_product_file(category, file_id, file_type)
+    await state.clear()
+    await message.answer(f"✅ Файл для <b>{category}</b> сохранён!\nТеперь он будет выдаваться клиентам при покупке.", parse_mode="HTML")
 
 # ==================== ЗАПУСК БОТА ====================
 async def main():
