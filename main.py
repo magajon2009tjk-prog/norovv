@@ -68,6 +68,13 @@ class Database:
             )
         ''')
 
+        # Таблица обработанных заявок (защита от двойного нажатия)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS processed_requests (
+                message_id INTEGER PRIMARY KEY
+            )
+        ''')
+
         # Таблица ключей
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS keys (
@@ -199,6 +206,14 @@ class Database:
 
     def close(self):
         self.conn.close()
+
+    def is_processed(self, message_id):
+        self.cursor.execute('SELECT 1 FROM processed_requests WHERE message_id = ?', (message_id,))
+        return self.cursor.fetchone() is not None
+
+    def mark_processed(self, message_id):
+        self.cursor.execute('INSERT OR IGNORE INTO processed_requests (message_id) VALUES (?)', (message_id,))
+        self.conn.commit()
 
 # Создаем экземпляр БД
 db = Database()
@@ -384,6 +399,14 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 # ---------- ПРИНЯТЬ ПОПОЛНЕНИЕ ----------
 @router.callback_query(lambda call: call.data.startswith("topup_accept:"))
 async def topup_accept(call: types.CallbackQuery):
+    message_id = call.message.message_id
+
+    if db.is_processed(message_id):
+        await call.answer("⚠️ Эта заявка уже обработана!", show_alert=True)
+        return
+
+    db.mark_processed(message_id)
+
     parts = call.data.split(":")
     user_id = int(parts[1])
     amount = int(parts[2])
@@ -404,13 +427,21 @@ async def topup_accept(call: types.CallbackQuery):
         call.message.caption + f"\n\n✅ <b>Принято — зачислено {amount}₽</b>\n"
                                f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
         parse_mode="HTML",
-        reply_markup=None
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
     )
     await call.answer(f"✅ Зачислено {amount}₽")
 
 # ---------- ОТКЛОНИТЬ ПОПОЛНЕНИЕ ----------
 @router.callback_query(lambda call: call.data.startswith("topup_reject:"))
 async def topup_reject(call: types.CallbackQuery):
+    message_id = call.message.message_id
+
+    if db.is_processed(message_id):
+        await call.answer("⚠️ Эта заявка уже обработана!", show_alert=True)
+        return
+
+    db.mark_processed(message_id)
+
     user_id = int(call.data.split(":")[1])
 
     try:
@@ -430,7 +461,7 @@ async def topup_reject(call: types.CallbackQuery):
         call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
                                f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
         parse_mode="HTML",
-        reply_markup=None
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
     )
     await call.answer("❌ Заявка отклонена")
 
