@@ -476,12 +476,15 @@ async def topup_accept(call: types.CallbackQuery):
     except Exception as e:
         print(f"Не удалось уведомить пользователя {user_id}: {e}")
 
-    await call.message.edit_caption(
-        call.message.caption + f"\n\n✅ <b>Принято — зачислено {amount}₽</b>\n"
-                               f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
-    )
+    try:
+        await call.message.edit_caption(
+            call.message.caption + f"\n\n✅ <b>Принято — зачислено {amount}₽</b>\n"
+                                   f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+        )
+    except Exception as e:
+        print(f"Ошибка edit_caption (topup_accept): {e}")
     await call.answer(f"✅ Зачислено {amount}₽")
 
 # ---------- ОТКЛОНИТЬ ПОПОЛНЕНИЕ ----------
@@ -510,12 +513,15 @@ async def topup_reject(call: types.CallbackQuery):
     except Exception as e:
         print(f"Не удалось уведомить пользователя {user_id}: {e}")
 
-    await call.message.edit_caption(
-        call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
-                               f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
-    )
+    try:
+        await call.message.edit_caption(
+            call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
+                                   f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+        )
+    except Exception as e:
+        print(f"Ошибка edit_caption (topup_reject): {e}")
     await call.answer("❌ Заявка отклонена")
 
 @router.callback_query(lambda call: call.data == "back_to_main")
@@ -877,15 +883,17 @@ async def purchase_accept(call: types.CallbackQuery):
 
     await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True, state=None)
 
-    await call.message.edit_caption(
-        call.message.caption + f"\n\n✅ <b>Подтверждено, товар выдан</b>\n"
-                               f"👤 @{call.from_user.username or call.from_user.first_name}",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
-    )
+    try:
+        await call.message.edit_caption(
+            call.message.caption + f"\n\n✅ <b>Подтверждено, товар выдан</b>\n"
+                                   f"👤 @{call.from_user.username or call.from_user.first_name}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+        )
+    except Exception as e:
+        print(f"Ошибка edit_caption (purchase_accept): {e}")
     await call.answer("✅ Товар выдан")
 
-# ---------- ОТКЛОНИТЬ ПОКУПКУ ПЕРЕВОДОМ ----------
 @router.callback_query(lambda call: call.data.startswith("purchase_reject:"))
 async def purchase_reject(call: types.CallbackQuery):
     message_id = call.message.message_id
@@ -904,12 +912,15 @@ async def purchase_reject(call: types.CallbackQuery):
     except:
         pass
 
-    await call.message.edit_caption(
-        call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
-                               f"👤 @{call.from_user.username or call.from_user.first_name}",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
-    )
+    try:
+        await call.message.edit_caption(
+            call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
+                                   f"👤 @{call.from_user.username or call.from_user.first_name}",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+        )
+    except Exception as e:
+        print(f"Ошибка edit_caption (purchase_reject): {e}")
     await call.answer("❌ Отклонено")
 
 # ---------- ОБЩАЯ ФУНКЦИЯ ВЫДАЧИ ТОВАРА ----------
