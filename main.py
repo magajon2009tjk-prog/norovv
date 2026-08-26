@@ -214,18 +214,45 @@ def main_keyboard():
 def category_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text="💻 PC")],
+            [KeyboardButton(text="📱 ANDROID")],
+            [KeyboardButton(text="🍎 IOS")],
+            [KeyboardButton(text="◀️ НАЗАД")]
+        ],
+        resize_keyboard=True
+    )
+
+def pc_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
             [KeyboardButton(text="🎯 AIM BOT PC")],
             [KeyboardButton(text="🔒 PRIVATE PC")],
             [KeyboardButton(text="⚙️ BASIC PC")],
             [KeyboardButton(text="💥 BR MOD PC")],
+            [KeyboardButton(text="◀️ В МАГАЗИН")]
+        ],
+        resize_keyboard=True
+    )
+
+def android_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
             [KeyboardButton(text="💧 DRIP CLIENT")],
             [KeyboardButton(text="🎮 HG CHEATS")],
             [KeyboardButton(text="⭐ PRIME MOD")],
+            [KeyboardButton(text="◀️ В МАГАЗИН")]
+        ],
+        resize_keyboard=True
+    )
+
+def ios_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
             [KeyboardButton(text="🍏 FLOURITE PANEL IOS")],
             [KeyboardButton(text="🍎 MIGULE PANEL IOS")],
             [KeyboardButton(text="🔗 PROXY IOS")],
             [KeyboardButton(text="📜 СЕРТИФИКАТ IOS")],
-            [KeyboardButton(text="◀️ НАЗАД")]
+            [KeyboardButton(text="◀️ В МАГАЗИН")]
         ],
         resize_keyboard=True
     )
@@ -334,9 +361,25 @@ async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext
 @router.message(lambda msg: msg.text == "🛒 МАГАЗИН")
 async def shop(message: types.Message):
     await message.answer(
-        "📂 Выберите категорию товара:",
+        "📂 Выберите платформу:",
         reply_markup=category_keyboard()
     )
+
+@router.message(lambda msg: msg.text == "💻 PC")
+async def pc_section(message: types.Message):
+    await message.answer("💻 Выберите товар:", reply_markup=pc_keyboard())
+
+@router.message(lambda msg: msg.text == "📱 ANDROID")
+async def android_section(message: types.Message):
+    await message.answer("📱 Выберите товар:", reply_markup=android_keyboard())
+
+@router.message(lambda msg: msg.text == "🍎 IOS")
+async def ios_section(message: types.Message):
+    await message.answer("🍎 Выберите товар:", reply_markup=ios_keyboard())
+
+@router.message(lambda msg: msg.text == "◀️ В МАГАЗИН")
+async def back_to_shop(message: types.Message):
+    await message.answer("📂 Выберите платформу:", reply_markup=category_keyboard())
 
 @router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC", "💧 DRIP CLIENT", "🎮 HG CHEATS", "⭐ PRIME MOD", "🍏 FLOURITE PANEL IOS", "🍎 MIGULE PANEL IOS", "🔗 PROXY IOS", "📜 СЕРТИФИКАТ IOS"])
 async def show_products(message: types.Message):
@@ -495,7 +538,6 @@ async def back_to_main(message: types.Message):
         "🏠 Главное меню",
         reply_markup=main_keyboard()
     )
-
 # ---------- ПРОФИЛЬ ----------
 @router.message(lambda msg: msg.text == "👤 ПРОФИЛЬ")
 async def profile(message: types.Message):
