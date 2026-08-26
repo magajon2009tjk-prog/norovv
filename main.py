@@ -476,7 +476,7 @@ async def profile(message: types.Message):
 async def check_key_button(message: types.Message, state: FSMContext):
     await state.set_state(KeyCheck.waiting_for_password)
     await message.answer(
-        "🔑 Введите пароль от вашего ключа:",
+        "🔑 Введите ваш ключ:",
         reply_markup=main_keyboard()
     )
 
