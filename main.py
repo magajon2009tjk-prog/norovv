@@ -1014,8 +1014,6 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
         f"🆔 ID: <code>{user_id}</code>\n"
         f"🛒 Товар: {name}\n"
         f"💳 Сумма: {price}₽\n"
-        f"🔑 Ключ: <code>{key}</code>\n"
-        f"🔒 Пароль: <code>{password}</code>\n"
         f"📅 До: {expiry}\n"
         f"🕐 Время: {purchase_time}\n"
         f"💰 Баланс после: {db.get_user_balance(user_id)}₽\n"
