@@ -107,6 +107,16 @@ class Database:
                 ("BR Mod PC - 1 день",  "BR MOD PC",  150,  "Доступ на 1 день"),
                 ("BR Mod PC - 7 дней",  "BR MOD PC",  700,  "Доступ на 7 дней"),
                 ("BR Mod PC - 30 дней", "BR MOD PC",  1200, "Доступ на 30 дней"),
+                # DRIP CLIENT ANDROID
+                ("Drip Client - 1 день",  "DRIP CLIENT", 111, "Доступ на 1 день"),
+                ("Drip Client - 7 дней",  "DRIP CLIENT", 333, "Доступ на 7 дней"),
+                ("Drip Client - 30 дней", "DRIP CLIENT", 888, "Доступ на 30 дней"),
+                # HG CHEATS ANDROID
+                ("HG Cheats - 10 дней", "HG CHEATS", 499, "Доступ на 10 дней"),
+                ("HG Cheats - 30 дней", "HG CHEATS", 888, "Доступ на 30 дней"),
+                # PRIME MOD ANDROID
+                ("Prime Mod - 5 дней",  "PRIME MOD", 300, "Доступ на 5 дней"),
+                ("Prime Mod - 10 дней", "PRIME MOD", 500, "Доступ на 10 дней"),
             ]
             self.cursor.executemany(
                 'INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)',
@@ -196,6 +206,9 @@ def category_keyboard():
             [KeyboardButton(text="🔒 PRIVATE PC")],
             [KeyboardButton(text="⚙️ BASIC PC")],
             [KeyboardButton(text="💥 BR MOD PC")],
+            [KeyboardButton(text="💧 DRIP CLIENT")],
+            [KeyboardButton(text="🎮 HG CHEATS")],
+            [KeyboardButton(text="⭐ PRIME MOD")],
             [KeyboardButton(text="◀️ НАЗАД")]
         ],
         resize_keyboard=True
@@ -309,13 +322,16 @@ async def shop(message: types.Message):
         reply_markup=category_keyboard()
     )
 
-@router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC"])
+@router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC", "💧 DRIP CLIENT", "🎮 HG CHEATS", "⭐ PRIME MOD"])
 async def show_products(message: types.Message):
     category_map = {
-        "🎯 AIM BOT PC": "AIM BOT PC",
-        "🔒 PRIVATE PC": "PRIVATE PC",
-        "⚙️ BASIC PC":   "BASIC PC",
-        "💥 BR MOD PC":  "BR MOD PC",
+        "🎯 AIM BOT PC":   "AIM BOT PC",
+        "🔒 PRIVATE PC":   "PRIVATE PC",
+        "⚙️ BASIC PC":     "BASIC PC",
+        "💥 BR MOD PC":    "BR MOD PC",
+        "💧 DRIP CLIENT":  "DRIP CLIENT",
+        "🎮 HG CHEATS":    "HG CHEATS",
+        "⭐ PRIME MOD":    "PRIME MOD",
     }
     category = category_map.get(message.text)
     
@@ -386,8 +402,12 @@ async def buy_product(call: types.CallbackQuery):
     password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     if "30" in name:
         days = 30
+    elif "10" in name:
+        days = 10
     elif "7" in name:
         days = 7
+    elif "5" in name:
+        days = 5
     else:
         days = 1
     
