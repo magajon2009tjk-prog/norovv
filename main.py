@@ -1,5 +1,6 @@
-import asyncio
-import sqlite3
+﻿import asyncio
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import random
 import string
 from datetime import datetime, timedelta
@@ -1304,8 +1305,8 @@ def make_upload_handler(category):
 @router.message(lambda msg: msg.chat.type == "private" and msg.from_user.id in ADMIN_IDS and msg.text and not msg.text.startswith("/"))
 async def admin_private_message(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
-    if current_state in [KeyRequest.waiting_for_user, KeyRequest.waiting_for_pass]:
-        return  # Уже обрабатывается FSM
+    if current_state is not None:
+        return  # Уже обрабатывается FSM — не перехватываем
 
     # Проверяем есть ли pending запрос
     db.cursor.execute('CREATE TABLE IF NOT EXISTS pending_key_issue (admin_id INTEGER PRIMARY KEY, target_user_id INTEGER, product_id INTEGER)')
