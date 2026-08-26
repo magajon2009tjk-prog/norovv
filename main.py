@@ -1368,95 +1368,101 @@ async def request_key_start(call: types.CallbackQuery, state: FSMContext):
     parts = call.data.split(":")
     user_id = int(parts[1])
     product_id = int(parts[2])
-    await state.set_state(KeyRequest.waiting_for_user)
-    await state.update_data(product_id=product_id)
-    await call.message.edit_reply_markup(reply_markup=None)
-    await call.bot.send_message(user_id, "🔐 Введите ваш <b>User</b> (логин) от панели:", parse_mode="HTML")
-    await call.answer()
-
-@router.message(KeyRequest.waiting_for_user)
-async def key_request_user(message: types.Message, state: FSMContext):
-    await state.update_data(panel_user=message.text.strip())
-    await state.set_state(KeyRequest.waiting_for_pass)
-    await message.answer("🔒 Теперь введите ваш <b>Pass</b> (пароль) от панели:", parse_mode="HTML")
-
-@router.message(KeyRequest.waiting_for_pass)
-async def key_request_pass(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    panel_user = data.get("panel_user")
-    panel_pass = message.text.strip()
-    product_id = data.get("product_id")
-    user_id = message.from_user.id
-    username = message.from_user.username or message.from_user.first_name
+    username = call.from_user.username or call.from_user.first_name
 
     db.cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
     row = db.cursor.fetchone()
     product_name = row[0] if row else "Неизвестно"
 
-    # Кнопка выдать ключ для каждого админа
+    # Убираем кнопку чтобы не нажали дважды
+    try:
+        await call.message.edit_reply_markup(reply_markup=None)
+    except:
+        pass
+
+    # Отправляем запрос в лог-чат с полями для заполнения
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="🔑 Выдать ключ",
+            text="✅ Выдать ключ",
             callback_data=f"give_key:{user_id}:{product_id}"
         )]
     ])
 
-    for admin_id in ADMIN_IDS:
-        try:
-            await message.bot.send_message(
-                admin_id,
-                f"🔑 <b>Запрос ключа!</b>\n\n"
-                f"👤 @{username} (ID: <code>{user_id}</code>)\n"
-                f"📦 Товар: <b>{product_name}</b>\n\n"
-                f"🖥 User: <code>{panel_user}</code>\n"
-                f"🔒 Pass: <code>{panel_pass}</code>",
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            print(f"Ошибка отправки админу: {e}")
+    try:
+        await call.bot.send_message(
+            LOG_CHAT_ID,
+            f"🔑 <b>Запрос ключа!</b>\n\n"
+            f"👤 @{username} (ID: <code>{user_id}</code>)\n"
+            f"📦 Товар: <b>{product_name}</b>\n\n"
+            f"📝 Отправьте клиенту:\n"
+            f"🖥 Username: \n"
+            f"🔒 Password: ",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Ошибка отправки в лог-чат: {e}")
 
-    await message.answer(
-        "✅ Ваш запрос отправлен!\n"
-        "⏰ Ожидайте — администратор скоро выдаст вам ключ.\n\n"
+    await call.answer("✅ Запрос отправлен!")
+    await call.bot.send_message(
+        user_id,
+        "✅ Ваш запрос на ключ отправлен!\n"
+        "⏰ Ожидайте — администратор скоро выдаст вам данные.\n\n"
         "По вопросам: @NorovK1ng"
     )
-    await state.clear()
 
 @router.callback_query(lambda call: call.data.startswith("give_key:"))
-async def give_key_handler(call: types.CallbackQuery):
+async def give_key_handler(call: types.CallbackQuery, state: FSMContext):
     parts = call.data.split(":")
     user_id = int(parts[1])
     product_id = int(parts[2])
+
+    await state.set_state(KeyRequest.waiting_for_user)
+    await state.update_data(target_user_id=user_id, product_id=product_id)
+
+    try:
+        await call.message.edit_reply_markup(reply_markup=None)
+    except:
+        pass
+
+    await call.message.reply(
+        f"📝 Введите <b>Username</b> для клиента <code>{user_id}</code>:",
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+@router.message(KeyRequest.waiting_for_user)
+async def admin_enter_username(message: types.Message, state: FSMContext):
+    await state.update_data(panel_user=message.text.strip())
+    await state.set_state(KeyRequest.waiting_for_pass)
+    await message.answer("🔒 Теперь введите <b>Password</b>:", parse_mode="HTML")
+
+@router.message(KeyRequest.waiting_for_pass)
+async def admin_enter_password(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    panel_user = data.get("panel_user")
+    panel_pass = message.text.strip()
+    target_user_id = data.get("target_user_id")
+    product_id = data.get("product_id")
 
     db.cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
     row = db.cursor.fetchone()
     product_name = row[0] if row else "Неизвестно"
 
-    # Ищем ключ пользователя
-    keys = db.get_user_keys(user_id)
-    if keys:
-        key, expiry, status = keys[-1]
-        db.cursor.execute('SELECT password FROM keys WHERE key = ?', (key,))
-        pw_row = db.cursor.fetchone()
-        password = pw_row[0] if pw_row else "—"
-        try:
-            await call.bot.send_message(
-                user_id,
-                f"🎉 <b>Ваш ключ готов!</b>\n\n"
-                f"📦 Товар: <b>{product_name}</b>\n"
-                f"🔑 Ключ: <code>{key}</code>\n"
-                f"🔒 Пароль: <code>{password}</code>\n"
-                f"📅 Действует до: {expiry}",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            print(f"Ошибка отправки ключа: {e}")
+    try:
+        await message.bot.send_message(
+            target_user_id,
+            f"🎉 <b>Ваши данные для входа готовы!</b>\n\n"
+            f"📦 Товар: <b>{product_name}</b>\n"
+            f"🖥 Username: <code>{panel_user}</code>\n"
+            f"🔒 Password: <code>{panel_pass}</code>",
+            parse_mode="HTML"
+        )
+        await message.answer(f"✅ Данные отправлены клиенту <code>{target_user_id}</code>", parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка отправки: {e}")
 
-        await call.message.edit_reply_markup(reply_markup=None)
-        await call.answer("✅ Ключ выдан пользователю")
-    else:
-        await call.answer("❌ Ключ не найден в БД", show_alert=True)
+    await state.clear()
 
 # ==================== ЗАПУСК БОТА ====================
 async def main():
