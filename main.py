@@ -1290,6 +1290,28 @@ def make_upload_handler(category):
         )
     return handler
 
+@router.message(lambda msg: msg.chat.type == "private" and msg.from_user.id in ADMIN_IDS and msg.text and not msg.text.startswith("/"))
+async def admin_private_message(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state in [KeyRequest.waiting_for_user, KeyRequest.waiting_for_pass]:
+        return  # Уже обрабатывается FSM
+
+    # Проверяем есть ли pending запрос
+    db.cursor.execute('CREATE TABLE IF NOT EXISTS pending_key_issue (admin_id INTEGER PRIMARY KEY, target_user_id INTEGER, product_id INTEGER)')
+    db.conn.commit()
+    db.cursor.execute('SELECT target_user_id, product_id FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
+    row = db.cursor.fetchone()
+    if row:
+        target_user_id, product_id = row
+        await state.set_state(KeyRequest.waiting_for_user)
+        await state.update_data(target_user_id=target_user_id, product_id=product_id)
+        db.cursor.execute('DELETE FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
+        db.conn.commit()
+        # Обрабатываем текущее сообщение как username
+        await state.update_data(panel_user=message.text.strip())
+        await state.set_state(KeyRequest.waiting_for_pass)
+        await message.answer("🔒 Теперь введите <b>Password</b>:", parse_mode="HTML")
+
 for cmd, cat in UPLOAD_COMMANDS.items():
     router.message(Command(cmd))(make_upload_handler(cat))
 
@@ -1399,23 +1421,59 @@ async def give_key_handler(call: types.CallbackQuery, state: FSMContext):
     user_id = int(parts[1])
     product_id = int(parts[2])
 
-    await state.set_state(KeyRequest.waiting_for_user)
-    await state.update_data(target_user_id=user_id, product_id=product_id)
+    admin_id = call.from_user.id
 
     try:
         await call.message.edit_reply_markup(reply_markup=None)
     except:
         pass
 
-    await call.message.reply(
-        f"📝 Введите <b>Username</b> для клиента <code>{user_id}</code>:",
-        parse_mode="HTML"
+    # Отправляем запрос ЛИЧНО админу в личку
+    try:
+        await call.bot.send_message(
+            admin_id,
+            f"📝 Введите <b>Username</b> для клиента <code>{user_id}</code>:\n\n"
+            f"(Напишите сюда в личку боту, не в группу)",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        await call.answer(f"❌ Не могу написать вам в личку. Напишите боту /start сначала.", show_alert=True)
+        return
+
+    # Используем простой способ - сохраняем через state напрямую
+    # state здесь привязан к chat где была нажата кнопка (группа)
+    # Нам нужно установить state для личного чата админа
+    # Делаем это через отдельный механизм - сохраняем pending в БД
+    db.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pending_key_issue (
+            admin_id INTEGER PRIMARY KEY,
+            target_user_id INTEGER,
+            product_id INTEGER
+        )
+    ''')
+    db.conn.commit()
+    db.cursor.execute(
+        'INSERT OR REPLACE INTO pending_key_issue (admin_id, target_user_id, product_id) VALUES (?, ?, ?)',
+        (admin_id, user_id, product_id)
     )
-    await call.answer()
+    db.conn.commit()
+
+    await call.answer("✅ Проверьте личные сообщения бота!")
 
 @router.message(KeyRequest.waiting_for_user)
 async def admin_enter_username(message: types.Message, state: FSMContext):
-    await state.update_data(panel_user=message.text.strip())
+    # Проверяем есть ли pending запрос для этого админа
+    db.cursor.execute('SELECT target_user_id, product_id FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
+    row = db.cursor.fetchone()
+    if row:
+        target_user_id, product_id = row
+        await state.update_data(panel_user=message.text.strip(), target_user_id=target_user_id, product_id=product_id)
+        # Удаляем pending
+        db.cursor.execute('DELETE FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
+        db.conn.commit()
+    else:
+        await state.update_data(panel_user=message.text.strip())
+
     await state.set_state(KeyRequest.waiting_for_pass)
     await message.answer("🔒 Теперь введите <b>Password</b>:", parse_mode="HTML")
 
