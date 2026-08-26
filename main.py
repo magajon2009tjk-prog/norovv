@@ -870,6 +870,40 @@ async def admin_add_balance(message: types.Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка: {str(e)}")
 
+@router.message(Command("remove_balance"))
+async def admin_remove_balance(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⛔ У вас нет прав для этой команды")
+        return
+
+    try:
+        args = message.text.split()
+        if len(args) != 3:
+            await message.answer("❌ Использование: /remove_balance <user_id> <сумма>")
+            return
+
+        user_id = int(args[1])
+        amount = int(args[2])
+        current = db.get_user_balance(user_id)
+
+        if current < amount:
+            await message.answer(f"❌ У пользователя {user_id} только {current}₽ на балансе")
+            return
+
+        db.update_balance(user_id, -amount)
+        await message.answer(f"✅ У пользователя {user_id} снято {amount}₽\n💰 Остаток: {db.get_user_balance(user_id)}₽")
+
+        try:
+            await message.bot.send_message(
+                user_id,
+                f"💸 С вашего баланса списано {amount}₽\n"
+                f"💰 Текущий баланс: {db.get_user_balance(user_id)}₽"
+            )
+        except:
+            pass
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
+
 @router.message(Command("add_key"))
 async def admin_add_key(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
