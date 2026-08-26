@@ -266,6 +266,7 @@ class KeyCheck(StatesGroup):
     waiting_for_password = State()
 
 class TopUp(StatesGroup):
+    waiting_for_amount = State()
     waiting_for_screenshot = State()
 
 # ==================== РОУТЕРЫ ====================
@@ -305,16 +306,27 @@ async def show_payment_details(message: types.Message, state: FSMContext):
 
 @router.callback_query(lambda call: call.data == "send_screenshot")
 async def request_screenshot(call: types.CallbackQuery, state: FSMContext):
-    await state.set_state(TopUp.waiting_for_screenshot)
+    await state.set_state(TopUp.waiting_for_amount)
     await call.message.edit_text(
-        "📤 Отправьте скриншот платежа.\n\n"
-        "После проверки наш менеджер пополнит ваш баланс.\n"
-        "⏰ Обычно это занимает до 5 минут.",
+        "💰 Введите сумму которую вы отправили:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
         ])
     )
     await call.answer()
+
+@router.message(TopUp.waiting_for_amount)
+async def process_amount(message: types.Message, state: FSMContext):
+    text = message.text.strip()
+    if not text.isdigit():
+        await message.answer("❌ Введите только число, например: 500")
+        return
+    await state.update_data(amount=int(text))
+    await state.set_state(TopUp.waiting_for_screenshot)
+    await message.answer(
+        f"✅ Сумма: {text}₽\n\n📤 Теперь отправьте скриншот платежа:",
+        reply_markup=main_keyboard()
+    )
 
 @router.message(TopUp.waiting_for_screenshot)
 async def process_screenshot(message: types.Message, state: FSMContext):
@@ -325,21 +337,12 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         user_id = message.from_user.id
         username = message.from_user.username or message.from_user.first_name
 
+        data = await state.get_data()
+        amount = data.get("amount", 0)
+
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ 100₽",  callback_data=f"topup_accept:{user_id}:100"),
-                InlineKeyboardButton(text="✅ 200₽",  callback_data=f"topup_accept:{user_id}:200"),
-                InlineKeyboardButton(text="✅ 300₽",  callback_data=f"topup_accept:{user_id}:300"),
-            ],
-            [
-                InlineKeyboardButton(text="✅ 500₽",  callback_data=f"topup_accept:{user_id}:500"),
-                InlineKeyboardButton(text="✅ 700₽",  callback_data=f"topup_accept:{user_id}:700"),
-                InlineKeyboardButton(text="✅ 1000₽", callback_data=f"topup_accept:{user_id}:1000"),
-            ],
-            [
-                InlineKeyboardButton(text="✅ 1500₽", callback_data=f"topup_accept:{user_id}:1500"),
-                InlineKeyboardButton(text="✅ 2000₽", callback_data=f"topup_accept:{user_id}:2000"),
-                InlineKeyboardButton(text="✅ 3000₽", callback_data=f"topup_accept:{user_id}:3000"),
+                InlineKeyboardButton(text=f"✅ Подтвердить {amount}₽", callback_data=f"topup_accept:{user_id}:{amount}"),
             ],
             [
                 InlineKeyboardButton(text="❌ Отклонить", callback_data=f"topup_reject:{user_id}"),
@@ -353,8 +356,8 @@ async def process_screenshot(message: types.Message, state: FSMContext):
                 caption=f"📥 <b>Новый запрос на пополнение!</b>\n"
                         f"👤 Пользователь: @{username}\n"
                         f"🆔 ID: <code>{user_id}</code>\n"
-                        f"💰 Текущий баланс: {db.get_user_balance(user_id)}₽\n\n"
-                        f"Выберите сумму для зачисления:",
+                        f"💰 Текущий баланс: {db.get_user_balance(user_id)}₽\n"
+                        f"💵 Сумма к зачислению: <b>{amount}₽</b>",
                 reply_markup=keyboard,
                 parse_mode="HTML"
             )
