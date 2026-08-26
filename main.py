@@ -304,6 +304,9 @@ class TopUp(StatesGroup):
     waiting_for_amount = State()
     waiting_for_screenshot = State()
 
+class Purchase(StatesGroup):
+    waiting_for_payment_screenshot = State()
+
 class UploadFile(StatesGroup):
     waiting_for_file = State()
 
@@ -655,41 +658,25 @@ async def show_products(message: types.Message):
     )
 
 @router.callback_query(lambda call: call.data.startswith("buy_"))
-async def buy_product(call: types.CallbackQuery):
+async def buy_product(call: types.CallbackQuery, state: FSMContext):
     product_id = int(call.data.split("_")[1])
     user_id = call.from_user.id
-    
-    # Получаем товар
+
     db.cursor.execute('SELECT name, price, description FROM products WHERE id = ?', (product_id,))
     product = db.cursor.fetchone()
-    
+
     if not product:
         await call.answer("❌ Товар не найден")
         return
-    
+
     name, price, desc = product
-    balance = db.get_user_balance(user_id)
-    
-    if balance < price:
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup")]
-        ])
-        await call.message.edit_text(
-            f"❌ Недостаточно средств!\n"
-            f"💰 Ваш баланс: {balance}₽\n"
-            f"💳 Стоимость: {price}₽\n\n"
-            f"Пополните баланс и попробуйте снова.",
-            reply_markup=keyboard
-        )
-        await call.answer()
-        return
-    
-    # Списываем средства
-    db.update_balance(user_id, -price)
-    
-    # Генерируем ключ
-    key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
-    password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    # Конвертация валют (примерные курсы)
+    usd = round(price / 90, 1)
+    uzs = round(price * 140)
+    tjs = round(price * 10.5, 1)
+
+    # Определяем дни
     if "365" in name:
         days = 365
     elif "30" in name:
@@ -702,26 +689,244 @@ async def buy_product(call: types.CallbackQuery):
         days = 5
     else:
         days = 1
-    
-    # Сохраняем ключ
+
+    balance = db.get_user_balance(user_id)
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 Оплатить с баланса", callback_data=f"pay_balance:{product_id}")],
+        [InlineKeyboardButton(text="💳 Оплатить переводом", callback_data=f"pay_transfer:{product_id}:{days}")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories")],
+    ])
+
+    await call.message.edit_text(
+        f"💳 <b>Выберите способ оплаты</b>\n\n"
+        f"📦 Товар: <b>{name}</b>\n"
+        f"📅 Дней: <b>{days}</b>\n\n"
+        f"💵 Сумма в разных валютах:\n"
+        f"<b>{price}₽</b> | <b>{usd}$</b> | <b>{uzs} сум</b> | <b>{tjs} сомони</b>\n\n"
+        f"💰 Ваш баланс: <b>{balance}₽</b>",
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+# ---------- ОПЛАТА С БАЛАНСА ----------
+@router.callback_query(lambda call: call.data.startswith("pay_balance:"))
+async def pay_with_balance(call: types.CallbackQuery):
+    product_id = int(call.data.split(":")[1])
+    user_id = call.from_user.id
+
+    db.cursor.execute('SELECT name, price, description FROM products WHERE id = ?', (product_id,))
+    product = db.cursor.fetchone()
+    if not product:
+        await call.answer("❌ Товар не найден")
+        return
+
+    name, price, desc = product
+    balance = db.get_user_balance(user_id)
+
+    if balance < price:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup")],
+            [InlineKeyboardButton(text="◀️ Назад", callback_data=f"buy_{product_id}")],
+        ])
+        await call.message.edit_text(
+            f"❌ Недостаточно средств!\n"
+            f"💰 Ваш баланс: {balance}₽\n"
+            f"💳 Стоимость: {price}₽",
+            reply_markup=keyboard
+        )
+        await call.answer()
+        return
+
+    db.update_balance(user_id, -price)
+    await _complete_purchase(call, product_id, name, price, user_id)
+
+# ---------- ОПЛАТА ПЕРЕВОДОМ ----------
+@router.callback_query(lambda call: call.data.startswith("pay_transfer:"))
+async def pay_with_transfer(call: types.CallbackQuery, state: FSMContext):
+    parts = call.data.split(":")
+    product_id = int(parts[1])
+    days = int(parts[2])
+
+    db.cursor.execute('SELECT name, price FROM products WHERE id = ?', (product_id,))
+    product = db.cursor.fetchone()
+    if not product:
+        await call.answer("❌ Товар не найден")
+        return
+
+    name, price = product
+    usd = round(price / 90, 1)
+    uzs = round(price * 140)
+    tjs = round(price * 10.5, 1)
+
+    await state.set_state(Purchase.waiting_for_payment_screenshot)
+    await state.update_data(product_id=product_id, price=price, name=name, days=days)
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Загрузить скриншот", callback_data="upload_purchase_screenshot")],
+        [InlineKeyboardButton(text="◀️ Назад к оплате", callback_data=f"buy_{product_id}")],
+    ])
+
+    await call.message.edit_text(
+        f"💳 <b>Оплата переводом</b>\n\n"
+        f"📦 Товар: <b>{name}</b>\n"
+        f"📅 Дней: <b>{days}</b>\n"
+        f"💵 Сумма к оплате: <b>{price}₽</b> | <b>{usd}$</b> | <b>{uzs} сум</b> | <b>{tjs} сомони</b>\n\n"
+        f"<b>Реквизиты для оплаты:</b>\n\n"
+        f"{PAYMENT_DETAILS}\n"
+        f"📸 <b>ВАЖНО:</b> После оплаты сделайте скриншот чека!\n\n"
+        f"👇 Нажмите кнопку ниже когда будете готовы отправить скриншот:",
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+    await call.answer()
+
+@router.callback_query(lambda call: call.data == "upload_purchase_screenshot")
+async def request_purchase_screenshot(call: types.CallbackQuery):
+    await call.message.edit_text(
+        "📤 Отправьте скриншот оплаты:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+        ])
+    )
+    await call.answer()
+
+@router.message(Purchase.waiting_for_payment_screenshot)
+async def process_purchase_screenshot(message: types.Message, state: FSMContext):
+    if not message.photo:
+        await message.answer("❌ Отправьте фото скриншота оплаты.")
+        return
+
+    data = await state.get_data()
+    product_id = data.get("product_id")
+    price = data.get("price")
+    name = data.get("name")
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name
+    photo_file_id = message.photo[-1].file_id
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"✅ Подтвердить и выдать товар", callback_data=f"purchase_accept:{user_id}:{product_id}")],
+        [InlineKeyboardButton(text="❌ Отклонить", callback_data=f"purchase_reject:{user_id}")],
+    ])
+
+    try:
+        await message.bot.send_photo(
+            LOG_CHAT_ID,
+            photo=photo_file_id,
+            caption=f"🛒 <b>Новая покупка (перевод)!</b>\n"
+                    f"👤 Пользователь: @{username}\n"
+                    f"🆔 ID: <code>{user_id}</code>\n"
+                    f"📦 Товар: <b>{name}</b>\n"
+                    f"💵 Сумма: <b>{price}₽</b>",
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Ошибка отправки в лог-чат: {e}")
+
+    await message.answer(
+        "✅ Скриншот отправлен на проверку!\n"
+        "⏰ После подтверждения товар будет выдан автоматически.\n\n"
+        "По вопросам: @NorovK1ng",
+        reply_markup=main_keyboard()
+    )
+    await state.clear()
+
+# ---------- ПОДТВЕРДИТЬ ПОКУПКУ ПЕРЕВОДОМ ----------
+@router.callback_query(lambda call: call.data.startswith("purchase_accept:"))
+async def purchase_accept(call: types.CallbackQuery):
+    message_id = call.message.message_id
+    if db.is_processed(message_id):
+        await call.answer("⚠️ Уже обработано!", show_alert=True)
+        return
+    db.mark_processed(message_id)
+
+    parts = call.data.split(":")
+    user_id = int(parts[1])
+    product_id = int(parts[2])
+
+    db.cursor.execute('SELECT name, price FROM products WHERE id = ?', (product_id,))
+    product = db.cursor.fetchone()
+    if not product:
+        await call.answer("❌ Товар не найден")
+        return
+    name, price = product
+
+    await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True)
+
+    await call.message.edit_caption(
+        call.message.caption + f"\n\n✅ <b>Подтверждено, товар выдан</b>\n"
+                               f"👤 @{call.from_user.username or call.from_user.first_name}",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+    )
+    await call.answer("✅ Товар выдан")
+
+# ---------- ОТКЛОНИТЬ ПОКУПКУ ПЕРЕВОДОМ ----------
+@router.callback_query(lambda call: call.data.startswith("purchase_reject:"))
+async def purchase_reject(call: types.CallbackQuery):
+    message_id = call.message.message_id
+    if db.is_processed(message_id):
+        await call.answer("⚠️ Уже обработано!", show_alert=True)
+        return
+    db.mark_processed(message_id)
+
+    user_id = int(call.data.split(":")[1])
+    try:
+        await call.bot.send_message(
+            user_id,
+            "❌ Ваш платёж был отклонён.\n"
+            "По вопросам: @NorovK1ng"
+        )
+    except:
+        pass
+
+    await call.message.edit_caption(
+        call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
+                               f"👤 @{call.from_user.username or call.from_user.first_name}",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+    )
+    await call.answer("❌ Отклонено")
+
+# ---------- ОБЩАЯ ФУНКЦИЯ ВЫДАЧИ ТОВАРА ----------
+async def _complete_purchase(call, product_id, name, price, user_id, via_transfer=False):
+    key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
+    password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+
+    if "365" in name:
+        days = 365
+    elif "30" in name:
+        days = 30
+    elif "10" in name:
+        days = 10
+    elif "7" in name:
+        days = 7
+    elif "5" in name:
+        days = 5
+    else:
+        days = 1
+
     expiry = db.add_key(key, user_id, password, days)
-    
     purchase_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     username = call.from_user.username or call.from_user.first_name
 
-    # Отправляем ключ пользователю
-    await call.message.edit_text(
-        f"✅ Поздравляем! Вы купили {name}\n\n"
-        f"🔑 Ваш ключ доступа:\n<code>{key}</code>\n"
+    text = (
+        f"✅ <b>Поздравляем! Вы купили {name}</b>\n\n"
+        f"🔑 Ключ: <code>{key}</code>\n"
         f"🔒 Пароль: <code>{password}</code>\n"
         f"📅 Действует до: {expiry}\n\n"
-        f"💰 Остаток на балансе: {db.get_user_balance(user_id)}₽",
-        parse_mode="HTML"
+        f"💰 Баланс: {db.get_user_balance(user_id)}₽"
     )
-    await call.answer("🎉 Покупка успешна!")
+
+    try:
+        await call.bot.send_message(user_id, text, parse_mode="HTML")
+    except:
+        pass
 
     # Отправляем файл товара если есть
-    # Определяем категорию купленного товара
     db.cursor.execute('SELECT category FROM products WHERE id = ?', (product_id,))
     cat_row = db.cursor.fetchone()
     if cat_row:
@@ -738,19 +943,25 @@ async def buy_product(call: types.CallbackQuery):
                 elif pf_type == "audio":
                     await call.bot.send_audio(user_id, pf_id, caption="📦 Файл вашего товара")
             except Exception as e:
-                print(f"Ошибка отправки файла товара: {e}")
+                print(f"Ошибка отправки файла: {e}")
 
-    # Отправляем чек в лог-чат
+    if not via_transfer:
+        try:
+            await call.message.edit_text(text, parse_mode="HTML")
+        except:
+            pass
+
+    # Чек в лог-чат
     receipt = (
         f"🧾 <b>ЧЕК О ПОКУПКЕ</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"👤 Пользователь: @{username}\n"
+        f"👤 @{username}\n"
         f"🆔 ID: <code>{user_id}</code>\n"
         f"🛒 Товар: {name}\n"
         f"💳 Сумма: {price}₽\n"
         f"🔑 Ключ: <code>{key}</code>\n"
         f"🔒 Пароль: <code>{password}</code>\n"
-        f"📅 Действует до: {expiry}\n"
+        f"📅 До: {expiry}\n"
         f"🕐 Время: {purchase_time}\n"
         f"💰 Баланс после: {db.get_user_balance(user_id)}₽\n"
         f"━━━━━━━━━━━━━━━━━━"
@@ -758,7 +969,7 @@ async def buy_product(call: types.CallbackQuery):
     try:
         await call.bot.send_message(LOG_CHAT_ID, receipt, parse_mode="HTML")
     except Exception as e:
-        print(f"Ошибка отправки чека в лог-чат: {e}")
+        print(f"Ошибка отправки чека: {e}")
 
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
