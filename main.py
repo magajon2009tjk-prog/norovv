@@ -440,26 +440,113 @@ async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext
 # ---------- МАГАЗИН ----------
 @router.message(lambda msg: msg.text == "🛒 МАГАЗИН")
 async def shop(message: types.Message):
-    await message.answer(
-        "📂 Выберите платформу:",
-        reply_markup=category_keyboard()
-    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC")],
+        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID")],
+        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS")],
+    ])
+    await message.answer("📂 Выберите платформу:", reply_markup=keyboard)
 
 @router.message(lambda msg: msg.text == "💻 PC")
 async def pc_section(message: types.Message):
-    await message.answer("💻 Выберите товар:", reply_markup=pc_keyboard())
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC")],
+        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC")],
+        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC")],
+        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+    ])
+    await message.answer("💻 Выберите товар:", reply_markup=keyboard)
 
 @router.message(lambda msg: msg.text == "📱 ANDROID")
 async def android_section(message: types.Message):
-    await message.answer("📱 Выберите товар:", reply_markup=android_keyboard())
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT")],
+        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS")],
+        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+    ])
+    await message.answer("📱 Выберите товар:", reply_markup=keyboard)
 
 @router.message(lambda msg: msg.text == "🍎 IOS")
 async def ios_section(message: types.Message):
-    await message.answer("🍎 Выберите товар:", reply_markup=ios_keyboard())
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS")],
+        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS")],
+        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS")],
+        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS")],
+        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform")],
+    ])
+    await message.answer("🍎 Выберите товар:", reply_markup=keyboard)
 
-@router.message(lambda msg: msg.text == "◀️ В МАГАЗИН")
-async def back_to_shop(message: types.Message):
-    await message.answer("📂 Выберите платформу:", reply_markup=category_keyboard())
+@router.callback_query(lambda call: call.data == "back_to_platform")
+async def back_to_platform(call: types.CallbackQuery):
+    await call.message.edit_text(
+        "📂 Выберите платформу:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC")],
+            [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID")],
+            [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS")],
+        ])
+    )
+    await call.answer()
+
+@router.callback_query(lambda call: call.data == "platform_PC")
+async def cb_pc(call: types.CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC")],
+        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC")],
+        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC")],
+        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+    ])
+    await call.message.edit_text("💻 Выберите товар:", reply_markup=keyboard)
+    await call.answer()
+
+@router.callback_query(lambda call: call.data == "platform_ANDROID")
+async def cb_android(call: types.CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT")],
+        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS")],
+        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+    ])
+    await call.message.edit_text("📱 Выберите товар:", reply_markup=keyboard)
+    await call.answer()
+
+@router.callback_query(lambda call: call.data == "platform_IOS")
+async def cb_ios(call: types.CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS")],
+        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS")],
+        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS")],
+        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS")],
+        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform")],
+    ])
+    await call.message.edit_text("🍎 Выберите товар:", reply_markup=keyboard)
+    await call.answer()
+
+@router.callback_query(lambda call: call.data.startswith("cat_"))
+async def show_products_inline(call: types.CallbackQuery):
+    category = call.data[4:]
+    products = db.get_products_by_category(category)
+
+    if not products:
+        await call.answer("📭 Нет товаров", show_alert=True)
+        return
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    for product in products:
+        product_id, name, price, desc = product
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(text=f"{name} — {price}₽", callback_data=f"buy_{product_id}")
+        ])
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories")
+    ])
+
+    await call.message.edit_text(f"📦 {category}:", reply_markup=keyboard)
+    await call.answer()
 
 @router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC", "💧 DRIP CLIENT", "🎮 HG CHEATS", "⭐ PRIME MOD", "🍏 FLOURITE PANEL IOS", "🍎 MIGULE PANEL IOS", "🔗 PROXY IOS", "📜 СЕРТИФИКАТ IOS"])
 async def show_products(message: types.Message):
