@@ -330,6 +330,10 @@ class TopUp(StatesGroup):
 class Purchase(StatesGroup):
     waiting_for_payment_screenshot = State()
 
+class KeyRequest(StatesGroup):
+    waiting_for_user = State()
+    waiting_for_pass = State()
+
 class UploadFile(StatesGroup):
     waiting_for_file = State()
 
@@ -759,7 +763,7 @@ async def pay_with_balance(call: types.CallbackQuery):
         return
 
     db.update_balance(user_id, -price)
-    await _complete_purchase(call, product_id, name, price, user_id)
+    await _complete_purchase(call, product_id, name, price, user_id, state=state)
 
 # ---------- ОПЛАТА ПЕРЕВОДОМ ----------
 @router.callback_query(lambda call: call.data.startswith("pay_transfer:"))
@@ -871,7 +875,7 @@ async def purchase_accept(call: types.CallbackQuery):
         return
     name, price = product
 
-    await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True)
+    await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True, state=None)
 
     await call.message.edit_caption(
         call.message.caption + f"\n\n✅ <b>Подтверждено, товар выдан</b>\n"
@@ -909,7 +913,7 @@ async def purchase_reject(call: types.CallbackQuery):
     await call.answer("❌ Отклонено")
 
 # ---------- ОБЩАЯ ФУНКЦИЯ ВЫДАЧИ ТОВАРА ----------
-async def _complete_purchase(call, product_id, name, price, user_id, via_transfer=False):
+async def _complete_purchase(call, product_id, name, price, user_id, via_transfer=False, state=None):
     key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
     password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
@@ -931,19 +935,37 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
     username = call.from_user.username or call.from_user.first_name
 
     text = (
-        f"✅ <b>Поздравляем! Вы купили {name}</b>\n\n"
-        f"🔑 Ключ: <code>{key}</code>\n"
-        f"🔒 Пароль: <code>{password}</code>\n"
+        f"✅ <b>Оплата подтверждена!</b>\n\n"
+        f"📦 Товар: <b>{name}</b>\n"
         f"📅 Действует до: {expiry}\n\n"
-        f"💰 Баланс: {db.get_user_balance(user_id)}₽"
+        f"💰 Баланс: {db.get_user_balance(user_id)}₽\n\n"
+        f"👇 Нажмите кнопку чтобы получить доступ к панели:",
     )
 
     try:
-        await call.bot.send_message(user_id, text, parse_mode="HTML")
+        await call.bot.send_message(user_id, text, parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔑 Запросить ключ", callback_data=f"request_key:{user_id}:{product_id}")]
+            ])
+        )
     except:
         pass
 
-    # Отправляем файл товара если есть
+    # Просим клиента ввести user от панели
+    try:
+        await call.bot.send_message(
+            user_id,
+            "🔐 Введите ваш <b>User</b> от панели (логин):",
+            parse_mode="HTML"
+        )
+    except:
+        pass
+
+    # Устанавливаем state для пользователя
+    if state is not None:
+        await state.set_state(KeyRequest.waiting_for_user)
+        await state.update_data(product_name=name, purchased_key=key, purchased_password=password)
+
     db.cursor.execute('SELECT category FROM products WHERE id = ?', (product_id,))
     cat_row = db.cursor.fetchone()
     if cat_row:
@@ -1300,7 +1322,109 @@ async def process_upload_file(message: types.Message, state: FSMContext):
 
     db.set_product_file(category, file_id, file_type)
     await state.clear()
-    await message.answer(f"✅ Файл для <b>{category}</b> сохранён!\nТеперь он будет выдаваться клиентам при покупке.", parse_mode="HTML")
+    await message.answer(
+        f"✅ Файл для <b>{category}</b> сохранён!\n"
+        f"📎 Тип: {file_type}\n"
+        f"Теперь он будет выдаваться клиентам при покупке.",
+        parse_mode="HTML"
+    )
+
+# ==================== ЗАПРОС КЛЮЧА ====================
+
+@router.callback_query(lambda call: call.data.startswith("request_key:"))
+async def request_key_start(call: types.CallbackQuery, state: FSMContext):
+    parts = call.data.split(":")
+    user_id = int(parts[1])
+    product_id = int(parts[2])
+    await state.set_state(KeyRequest.waiting_for_user)
+    await state.update_data(product_id=product_id)
+    await call.message.edit_reply_markup(reply_markup=None)
+    await call.bot.send_message(user_id, "🔐 Введите ваш <b>User</b> (логин) от панели:", parse_mode="HTML")
+    await call.answer()
+
+@router.message(KeyRequest.waiting_for_user)
+async def key_request_user(message: types.Message, state: FSMContext):
+    await state.update_data(panel_user=message.text.strip())
+    await state.set_state(KeyRequest.waiting_for_pass)
+    await message.answer("🔒 Теперь введите ваш <b>Pass</b> (пароль) от панели:", parse_mode="HTML")
+
+@router.message(KeyRequest.waiting_for_pass)
+async def key_request_pass(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    panel_user = data.get("panel_user")
+    panel_pass = message.text.strip()
+    product_id = data.get("product_id")
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name
+
+    db.cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
+    row = db.cursor.fetchone()
+    product_name = row[0] if row else "Неизвестно"
+
+    # Кнопка выдать ключ для каждого админа
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🔑 Выдать ключ",
+            callback_data=f"give_key:{user_id}:{product_id}"
+        )]
+    ])
+
+    for admin_id in ADMIN_IDS:
+        try:
+            await message.bot.send_message(
+                admin_id,
+                f"🔑 <b>Запрос ключа!</b>\n\n"
+                f"👤 @{username} (ID: <code>{user_id}</code>)\n"
+                f"📦 Товар: <b>{product_name}</b>\n\n"
+                f"🖥 User: <code>{panel_user}</code>\n"
+                f"🔒 Pass: <code>{panel_pass}</code>",
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            print(f"Ошибка отправки админу: {e}")
+
+    await message.answer(
+        "✅ Ваш запрос отправлен!\n"
+        "⏰ Ожидайте — администратор скоро выдаст вам ключ.\n\n"
+        "По вопросам: @NorovK1ng"
+    )
+    await state.clear()
+
+@router.callback_query(lambda call: call.data.startswith("give_key:"))
+async def give_key_handler(call: types.CallbackQuery):
+    parts = call.data.split(":")
+    user_id = int(parts[1])
+    product_id = int(parts[2])
+
+    db.cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
+    row = db.cursor.fetchone()
+    product_name = row[0] if row else "Неизвестно"
+
+    # Ищем ключ пользователя
+    keys = db.get_user_keys(user_id)
+    if keys:
+        key, expiry, status = keys[-1]
+        db.cursor.execute('SELECT password FROM keys WHERE key = ?', (key,))
+        pw_row = db.cursor.fetchone()
+        password = pw_row[0] if pw_row else "—"
+        try:
+            await call.bot.send_message(
+                user_id,
+                f"🎉 <b>Ваш ключ готов!</b>\n\n"
+                f"📦 Товар: <b>{product_name}</b>\n"
+                f"🔑 Ключ: <code>{key}</code>\n"
+                f"🔒 Пароль: <code>{password}</code>\n"
+                f"📅 Действует до: {expiry}",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            print(f"Ошибка отправки ключа: {e}")
+
+        await call.message.edit_reply_markup(reply_markup=None)
+        await call.answer("✅ Ключ выдан пользователю")
+    else:
+        await call.answer("❌ Ключ не найден в БД", show_alert=True)
 
 # ==================== ЗАПУСК БОТА ====================
 async def main():
