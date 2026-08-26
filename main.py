@@ -1480,6 +1480,14 @@ async def admin_enter_username(message: types.Message, state: FSMContext):
 @router.message(KeyRequest.waiting_for_pass)
 async def admin_enter_password(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    # Дебаг - показываем что получили из state
+    await message.answer(
+        f"🔍 Дебаг:\n"
+        f"panel_user: <code>{data.get('panel_user')}</code>\n"
+        f"target_user_id: <code>{data.get('target_user_id')}</code>\n"
+        f"product_id: <code>{data.get('product_id')}</code>",
+        parse_mode="HTML"
+    )
     panel_user = data.get("panel_user")
     panel_pass = message.text.strip()
     target_user_id = data.get("target_user_id")
