@@ -1,0 +1,634 @@
+import asyncio
+import sqlite3
+import random
+import string
+from datetime import datetime, timedelta
+import os
+from dotenv import load_dotenv
+
+from aiogram import Bot, Dispatcher, Router, types
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+
+# ==================== КОНФИГУРАЦИЯ ====================
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN не задан! Добавьте его в переменные окружения.")
+
+# ADMIN_IDS задаётся через env как строка "123456789,987654321"
+_admin_ids_raw = os.getenv("ADMIN_IDS", "")
+ADMIN_IDS = [int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdigit()]
+
+# ==================== РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ ====================
+PAYMENT_DETAILS = """
+💳 РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ:
+
+🏦 АЛЬФА БАНК
+📱 +992003443843 (ДУШАНБЕ СИТИ)
+
+🏦 АЛЬФА БАНК
+📱 +992003443844
+
+🏦 СБЕРБАНК
+📱 +7 977 176-68-84
+
+🏦 Т-БАНК
+📱 +7 985 435-31-15
+
+📝 ИНСТРУКЦИЯ:
+1. Переведите сумму на любой из указанных реквизитов
+2. Отправьте скриншот платежа в техподдержку
+3. Дождитесь пополнения баланса (до 5 минут)
+"""
+
+# ==================== БАЗА ДАННЫХ ====================
+class Database:
+    def __init__(self, db_name="shop.db"):
+        self.conn = sqlite3.connect(db_name)
+        self.cursor = self.conn.cursor()
+        self.create_tables()
+
+    def create_tables(self):
+        # Таблица пользователей
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                balance INTEGER DEFAULT 0,
+                registered_at TEXT
+            )
+        ''')
+
+        # Таблица ключей
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS keys (
+                key TEXT PRIMARY KEY,
+                user_id INTEGER,
+                password TEXT,
+                expiry_date TEXT,
+                status TEXT DEFAULT 'active',
+                FOREIGN KEY (user_id) REFERENCES users (user_id)
+            )
+        ''')
+
+        # Таблица товаров
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                category TEXT,
+                price INTEGER,
+                description TEXT
+            )
+        ''')
+
+        # Добавляем тестовые товары, если их нет
+        self.cursor.execute('SELECT COUNT(*) FROM products')
+        if self.cursor.fetchone()[0] == 0:
+            products = [
+                ("PC Panel Premium", "PC PANEL", 500, "Доступ ко всем функциям на 30 дней"),
+                ("PC Panel Ultimate", "PC PANEL", 1000, "Доступ ко всем функциям на 90 дней"),
+                ("Android Panel Pro", "ANDROID PANEL", 400, "Полный доступ на 30 дней"),
+                ("Android Panel Ultimate", "ANDROID PANEL", 800, "Полный доступ на 90 дней"),
+                ("iOS Panel Basic", "IOS PANEL", 350, "Базовый доступ на 30 дней"),
+                ("iOS Panel Premium", "IOS PANEL", 700, "Премиум доступ на 90 дней"),
+            ]
+            self.cursor.executemany(
+                'INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)',
+                products
+            )
+        self.conn.commit()
+
+    def add_user(self, user_id, username):
+        self.cursor.execute(
+            'INSERT OR IGNORE INTO users (user_id, username, registered_at) VALUES (?, ?, ?)',
+            (user_id, username, datetime.now().isoformat())
+        )
+        self.conn.commit()
+
+    def get_user(self, user_id):
+        self.cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
+        return self.cursor.fetchone()
+
+    def get_user_balance(self, user_id):
+        self.cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
+
+    def update_balance(self, user_id, amount):
+        self.cursor.execute(
+            'UPDATE users SET balance = balance + ? WHERE user_id = ?',
+            (amount, user_id)
+        )
+        self.conn.commit()
+
+    def check_key(self, password):
+        self.cursor.execute(
+            'SELECT key, user_id, expiry_date, status FROM keys WHERE password = ?',
+            (password,)
+        )
+        return self.cursor.fetchone()
+
+    def get_user_keys(self, user_id):
+        self.cursor.execute(
+            'SELECT key, expiry_date, status FROM keys WHERE user_id = ?',
+            (user_id,)
+        )
+        return self.cursor.fetchall()
+
+    def add_key(self, key, user_id, password, days):
+        expiry = (datetime.now() + timedelta(days=days)).isoformat()
+        self.cursor.execute(
+            'INSERT INTO keys (key, user_id, password, expiry_date) VALUES (?, ?, ?, ?)',
+            (key, user_id, password, expiry)
+        )
+        self.conn.commit()
+        return expiry
+
+    def get_products_by_category(self, category):
+        self.cursor.execute(
+            'SELECT id, name, price, description FROM products WHERE category = ?',
+            (category,)
+        )
+        return self.cursor.fetchall()
+
+    def get_all_products(self):
+        self.cursor.execute('SELECT id, name, category, price, description FROM products')
+        return self.cursor.fetchall()
+
+    def close(self):
+        self.conn.close()
+
+# Создаем экземпляр БД
+db = Database()
+
+# ==================== КЛАВИАТУРЫ ====================
+def main_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🛒 МАГАЗИН")],
+            [KeyboardButton(text="👤 ПРОФИЛЬ"), KeyboardButton(text="🔧 ТЕХ.ПОДДЕРЖКА")],
+            [KeyboardButton(text="⭐ ОТЗЫВЫ"), KeyboardButton(text="🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ")],
+            [KeyboardButton(text="💰 ПОПОЛНИТЬ БАЛАНС")]
+        ],
+        resize_keyboard=True
+    )
+
+def category_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="💻 PC PANEL")],
+            [KeyboardButton(text="📱 ANDROID PANEL")],
+            [KeyboardButton(text="🍎 IOS PANEL")],
+            [KeyboardButton(text="◀️ НАЗАД")]
+        ],
+        resize_keyboard=True
+    )
+
+# ==================== СОСТОЯНИЯ FSM ====================
+class KeyCheck(StatesGroup):
+    waiting_for_password = State()
+
+class TopUp(StatesGroup):
+    waiting_for_screenshot = State()
+
+# ==================== РОУТЕРЫ ====================
+router = Router()
+
+# ==================== ОБРАБОТЧИКИ ====================
+
+# ---------- СТАРТ ----------
+@router.message(Command("start"))
+async def start(message: types.Message):
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name
+    
+    # Добавляем пользователя в БД
+    db.add_user(user_id, username)
+    
+    await message.answer(
+        f"👋 Добро пожаловать, {username}!\n\n"
+        "🏪 Это магазин по продаже доступов к панелям.\n"
+        "Выберите категорию или воспользуйтесь кнопками ниже.",
+        reply_markup=main_keyboard()
+    )
+
+# ---------- ПОПОЛНЕНИЕ БАЛАНСА ----------
+@router.message(lambda msg: msg.text == "💰 ПОПОЛНИТЬ БАЛАНС")
+async def show_payment_details(message: types.Message, state: FSMContext):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+    ])
+    
+    await message.answer(
+        f"{PAYMENT_DETAILS}\n\n"
+        f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽",
+        reply_markup=keyboard
+    )
+
+@router.callback_query(lambda call: call.data == "send_screenshot")
+async def request_screenshot(call: types.CallbackQuery, state: FSMContext):
+    await state.set_state(TopUp.waiting_for_screenshot)
+    await call.message.edit_text(
+        "📤 Отправьте скриншот платежа.\n\n"
+        "После проверки наш менеджер пополнит ваш баланс.\n"
+        "⏰ Обычно это занимает до 5 минут.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+        ])
+    )
+    await call.answer()
+
+@router.message(TopUp.waiting_for_screenshot)
+async def process_screenshot(message: types.Message, state: FSMContext):
+    if message.photo:
+        # Получаем информацию о фото
+        photo = message.photo[-1]
+        file_id = photo.file_id
+        
+        # Уведомление админов
+        for admin_id in ADMIN_IDS:
+            try:
+                await message.bot.send_photo(
+                    admin_id,
+                    photo=file_id,
+                    caption=f"📥 Новый запрос на пополнение!\n"
+                            f"👤 Пользователь: @{message.from_user.username or 'Не указан'}\n"
+                            f"🆔 ID: {message.from_user.id}\n"
+                            f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
+                            f"Для пополнения используйте команду:\n"
+                            f"/add_balance {message.from_user.id} <сумма>"
+                )
+            except:
+                pass
+        
+        await message.answer(
+            "✅ Ваш скриншот отправлен на проверку!\n"
+            "⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
+            "Если у вас возникли вопросы, обратитесь в техподдержку: @support_bot",
+            reply_markup=main_keyboard()
+        )
+        await state.clear()
+    else:
+        await message.answer(
+            "❌ Пожалуйста, отправьте фото скриншота платежа.",
+            reply_markup=main_keyboard()
+        )
+
+@router.callback_query(lambda call: call.data == "back_to_main")
+async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await call.message.edit_text(
+        "🏠 Главное меню",
+        reply_markup=main_keyboard()
+    )
+    await call.answer()
+
+# ---------- МАГАЗИН ----------
+@router.message(lambda msg: msg.text == "🛒 МАГАЗИН")
+async def shop(message: types.Message):
+    await message.answer(
+        "📂 Выберите категорию товара:",
+        reply_markup=category_keyboard()
+    )
+
+@router.message(lambda msg: msg.text in ["💻 PC PANEL", "📱 ANDROID PANEL", "🍎 IOS PANEL"])
+async def show_products(message: types.Message):
+    category_map = {
+        "💻 PC PANEL": "PC PANEL",
+        "📱 ANDROID PANEL": "ANDROID PANEL",
+        "🍎 IOS PANEL": "IOS PANEL"
+    }
+    category = category_map.get(message.text)
+    
+    if not category:
+        await message.answer("❌ Категория не найдена", reply_markup=category_keyboard())
+        return
+    
+    products = db.get_products_by_category(category)
+    
+    if not products:
+        await message.answer("📭 В этой категории пока нет товаров", reply_markup=category_keyboard())
+        return
+    
+    # Создаем инлайн-клавиатуру с товарами
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    for product in products:
+        product_id, name, price, desc = product
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(
+                text=f"{name} - {price}₽",
+                callback_data=f"buy_{product_id}"
+            )
+        ])
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories")
+    ])
+    
+    await message.answer(
+        f"📦 Товары в категории {category}:",
+        reply_markup=keyboard
+    )
+
+@router.callback_query(lambda call: call.data.startswith("buy_"))
+async def buy_product(call: types.CallbackQuery):
+    product_id = int(call.data.split("_")[1])
+    user_id = call.from_user.id
+    
+    # Получаем товар
+    db.cursor.execute('SELECT name, price, description FROM products WHERE id = ?', (product_id,))
+    product = db.cursor.fetchone()
+    
+    if not product:
+        await call.answer("❌ Товар не найден")
+        return
+    
+    name, price, desc = product
+    balance = db.get_user_balance(user_id)
+    
+    if balance < price:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup")]
+        ])
+        await call.message.edit_text(
+            f"❌ Недостаточно средств!\n"
+            f"💰 Ваш баланс: {balance}₽\n"
+            f"💳 Стоимость: {price}₽\n\n"
+            f"Пополните баланс и попробуйте снова.",
+            reply_markup=keyboard
+        )
+        await call.answer()
+        return
+    
+    # Списываем средства
+    db.update_balance(user_id, -price)
+    
+    # Генерируем ключ
+    key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
+    password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    days = 30 if "30" in name else 90
+    
+    # Сохраняем ключ
+    expiry = db.add_key(key, user_id, password, days)
+    
+    # Отправляем ключ
+    await call.message.edit_text(
+        f"✅ Поздравляем! Вы купили {name}\n\n"
+        f"🔑 Ваш ключ доступа:\n<code>{key}</code>\n"
+        f"🔒 Пароль: <code>{password}</code>\n"
+        f"📅 Действует до: {expiry}\n\n"
+        f"💰 Остаток на балансе: {db.get_user_balance(user_id)}₽",
+        parse_mode="HTML"
+    )
+    await call.answer("🎉 Покупка успешна!")
+
+@router.callback_query(lambda call: call.data == "back_to_categories")
+async def back_to_categories(call: types.CallbackQuery):
+    await call.message.edit_text(
+        "📂 Выберите категорию товара:",
+        reply_markup=category_keyboard()
+    )
+    await call.answer()
+
+@router.callback_query(lambda call: call.data == "topup")
+async def topup_balance_callback(call: types.CallbackQuery):
+    await call.message.edit_text(
+        f"{PAYMENT_DETAILS}\n\n"
+        f"💰 Текущий баланс: {db.get_user_balance(call.from_user.id)}₽",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+        ])
+    )
+    await call.answer()
+
+@router.message(lambda msg: msg.text == "◀️ НАЗАД")
+async def back_to_main(message: types.Message):
+    await message.answer(
+        "🏠 Главное меню",
+        reply_markup=main_keyboard()
+    )
+
+# ---------- ПРОФИЛЬ ----------
+@router.message(lambda msg: msg.text == "👤 ПРОФИЛЬ")
+async def profile(message: types.Message):
+    user_id = message.from_user.id
+    user = db.get_user(user_id)
+    
+    if not user:
+        await message.answer("❌ Пользователь не найден")
+        return
+    
+    balance = db.get_user_balance(user_id)
+    keys = db.get_user_keys(user_id)
+    
+    text = f"👤 Профиль\n\n"
+    text += f"🆔 ID: {user[0]}\n"
+    text += f"👤 Имя: {user[1] or 'Не указано'}\n"
+    text += f"💰 Баланс: {balance}₽\n"
+    text += f"📅 Зарегистрирован: {user[3]}\n\n"
+    
+    if keys:
+        text += "🔑 Ваши ключи:\n"
+        for key, expiry, status in keys:
+            text += f"• {key} - {status} (до {expiry})\n"
+    else:
+        text += "🔑 У вас нет активных ключей"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup")]
+    ])
+    
+    await message.answer(text, reply_markup=keyboard)
+
+# ---------- ПРОВЕРКА КЛЮЧА ----------
+@router.message(lambda msg: msg.text == "🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ")
+async def check_key_button(message: types.Message, state: FSMContext):
+    await state.set_state(KeyCheck.waiting_for_password)
+    await message.answer(
+        "🔑 Введите пароль от вашего ключа:",
+        reply_markup=main_keyboard()
+    )
+
+@router.message(KeyCheck.waiting_for_password)
+async def process_key_check(message: types.Message, state: FSMContext):
+    password = message.text.strip()
+    user_id = message.from_user.id
+    
+    # Проверяем ключ в БД
+    key_data = db.check_key(password)
+    
+    if key_data:
+        key, key_user_id, expiry_date, status = key_data
+        
+        # Проверяем, принадлежит ли ключ пользователю
+        if key_user_id == user_id:
+            await message.answer(
+                f"✅ Ключ найден!\n\n"
+                f"🔑 Ключ: {key}\n"
+                f"👤 Владелец: @{message.from_user.username or 'Не указан'}\n"
+                f"📅 Действует до: {expiry_date}\n"
+                f"📊 Статус: {status}",
+                reply_markup=main_keyboard()
+            )
+        else:
+            await message.answer(
+                "❌ Этот ключ не принадлежит вам!\n"
+                "Пожалуйста, введите свой пароль.",
+                reply_markup=main_keyboard()
+            )
+    else:
+        await message.answer(
+            "❌ У вас нету ключа или он не добавлен в базу данных.\n"
+            "Пожалуйста, приобретите ключ в магазине.",
+            reply_markup=main_keyboard()
+        )
+    
+    await state.clear()
+
+# ---------- ТЕХ.ПОДДЕРЖКА ----------
+@router.message(lambda msg: msg.text == "🔧 ТЕХ.ПОДДЕРЖКА")
+async def support(message: types.Message):
+    await message.answer(
+        "🔧 Техническая поддержка\n\n"
+        "Свяжитесь с нами:\n"
+        "📧 Email: support@example.com\n"
+        "📱 Telegram: @support_bot\n"
+        "⏰ Время работы: 10:00 - 22:00 МСК\n\n"
+        "💰 Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'",
+        reply_markup=main_keyboard()
+    )
+
+# ---------- ОТЗЫВЫ ----------
+@router.message(lambda msg: msg.text == "⭐ ОТЗЫВЫ")
+async def reviews(message: types.Message):
+    await message.answer(
+        "⭐ Отзывы наших клиентов:\n\n"
+        "⭐️⭐️⭐️⭐️⭐️ - Отличный сервис! (Алексей)\n"
+        "⭐️⭐️⭐️⭐️⭐️ - Быстро и надежно! (Мария)\n"
+        "⭐️⭐️⭐️⭐️⭐️ - Лучшие панели! (Дмитрий)\n\n"
+        "Оставьте свой отзыв, написав нам в поддержку!",
+        reply_markup=main_keyboard()
+    )
+
+# ---------- АДМИН-КОМАНДЫ ----------
+@router.message(Command("add_balance"))
+async def admin_add_balance(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⛔ У вас нет прав для этой команды")
+        return
+    
+    try:
+        args = message.text.split()
+        if len(args) != 3:
+            await message.answer("❌ Использование: /add_balance <user_id> <сумма>")
+            return
+        
+        user_id = int(args[1])
+        amount = int(args[2])
+        
+        db.update_balance(user_id, amount)
+        await message.answer(f"✅ Пользователю {user_id} добавлено {amount}₽")
+        
+        # Уведомляем пользователя о пополнении
+        try:
+            await message.bot.send_message(
+                user_id,
+                f"💰 Ваш баланс пополнен на {amount}₽!\n"
+                f"💰 Текущий баланс: {db.get_user_balance(user_id)}₽"
+            )
+        except:
+            pass
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
+
+@router.message(Command("add_key"))
+async def admin_add_key(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⛔ У вас нет прав для этой команды")
+        return
+    
+    try:
+        args = message.text.split()
+        if len(args) != 4:
+            await message.answer("❌ Использование: /add_key <user_id> <пароль> <дней>")
+            return
+        
+        user_id = int(args[1])
+        password = args[2]
+        days = int(args[3])
+        
+        key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
+        expiry = db.add_key(key, user_id, password, days)
+        
+        await message.answer(
+            f"✅ Ключ создан!\n\n"
+            f"🔑 Ключ: {key}\n"
+            f"🔒 Пароль: {password}\n"
+            f"👤 Пользователь: {user_id}\n"
+            f"📅 Действует до: {expiry}"
+        )
+        
+        # Уведомляем пользователя
+        try:
+            await message.bot.send_message(
+                user_id,
+                f"🎉 Вам выдан новый ключ!\n\n"
+                f"🔑 Ключ: {key}\n"
+                f"🔒 Пароль: {password}\n"
+                f"📅 Действует до: {expiry}"
+            )
+        except:
+            pass
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
+
+@router.message(Command("stats"))
+async def admin_stats(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⛔ У вас нет прав для этой команды")
+        return
+    
+    db.cursor.execute('SELECT COUNT(*) FROM users')
+    users_count = db.cursor.fetchone()[0]
+    
+    db.cursor.execute('SELECT COUNT(*) FROM keys')
+    keys_count = db.cursor.fetchone()[0]
+    
+    db.cursor.execute('SELECT SUM(balance) FROM users')
+    total_balance = db.cursor.fetchone()[0] or 0
+    
+    await message.answer(
+        f"📊 СТАТИСТИКА БОТА\n\n"
+        f"👤 Всего пользователей: {users_count}\n"
+        f"🔑 Всего ключей: {keys_count}\n"
+        f"💰 Общий баланс: {total_balance}₽"
+    )
+
+# ==================== ЗАПУСК БОТА ====================
+async def main():
+    # Инициализация бота
+    bot = Bot(token=BOT_TOKEN)
+    storage = MemoryStorage()
+    dp = Dispatcher(storage=storage)
+    
+    # Подключаем роутер
+    dp.include_router(router)
+    
+    print("🤖 Бот запущен...")
+    print("📊 База данных инициализирована")
+    print(f"👤 Админы: {ADMIN_IDS}")
+    
+    try:
+        await dp.start_polling(bot)
+    finally:
+        db.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
