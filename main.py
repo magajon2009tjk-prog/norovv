@@ -32,9 +32,6 @@ PAYMENT_DETAILS = """
 💳 РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ:
 
 🏦 АЛЬФА БАНК
-📱 +992003443843 (ДУШАНБЕ СИТИ)
-
-🏦 АЛЬФА БАНК
 📱 +992003443844
 
 🏦 ДУШАНБЕ СИТИ
@@ -627,8 +624,7 @@ async def support(message: types.Message):
     await message.answer(
         "🔧 Техническая поддержка\n\n"
         "По всем вопросам обращайтесь:\n"
-        "📱 Telegram: @NorovK1ng\n"
-        "⏰ Время работы: 10:00 - 22:00 МСК\n\n"
+        "📱 Telegram: @NorovK1ng\n\n"
         "💰 Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'",
         reply_markup=main_keyboard()
     )
@@ -637,11 +633,8 @@ async def support(message: types.Message):
 @router.message(lambda msg: msg.text == "⭐ ОТЗЫВЫ")
 async def reviews(message: types.Message):
     await message.answer(
-        "⭐ Отзывы наших клиентов:\n\n"
-        "⭐️⭐️⭐️⭐️⭐️ - Отличный сервис! (Алексей)\n"
-        "⭐️⭐️⭐️⭐️⭐️ - Быстро и надежно! (Мария)\n"
-        "⭐️⭐️⭐️⭐️⭐️ - Лучшие панели! (Дмитрий)\n\n"
-        "Оставьте свой отзыв, написав нам в поддержку!",
+        "⭐ Отзывы\n\n"
+        "😔 Пока что нету отзывов.",
         reply_markup=main_keyboard()
     )
 
