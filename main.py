@@ -87,16 +87,26 @@ class Database:
             )
         ''')
 
-        # Добавляем тестовые товары, если их нет
+        # Добавляем товары, если их нет
         self.cursor.execute('SELECT COUNT(*) FROM products')
         if self.cursor.fetchone()[0] == 0:
             products = [
-                ("PC Panel Premium", "PC PANEL", 500, "Доступ ко всем функциям на 30 дней"),
-                ("PC Panel Ultimate", "PC PANEL", 1000, "Доступ ко всем функциям на 90 дней"),
-                ("Android Panel Pro", "ANDROID PANEL", 400, "Полный доступ на 30 дней"),
-                ("Android Panel Ultimate", "ANDROID PANEL", 800, "Полный доступ на 90 дней"),
-                ("iOS Panel Basic", "IOS PANEL", 350, "Базовый доступ на 30 дней"),
-                ("iOS Panel Premium", "IOS PANEL", 700, "Премиум доступ на 90 дней"),
+                # AIM BOT PC
+                ("Aim Bot - 1 день",   "AIM BOT PC",  150,  "Доступ на 1 день"),
+                ("Aim Bot - 7 дней",   "AIM BOT PC",  700,  "Доступ на 7 дней"),
+                ("Aim Bot - 30 дней",  "AIM BOT PC",  1200, "Доступ на 30 дней"),
+                # PRIVATE PC
+                ("Private - 1 день",   "PRIVATE PC",  150,  "Доступ на 1 день"),
+                ("Private - 7 дней",   "PRIVATE PC",  700,  "Доступ на 7 дней"),
+                ("Private - 30 дней",  "PRIVATE PC",  1200, "Доступ на 30 дней"),
+                # BASIC PC
+                ("Basic - 1 день",     "BASIC PC",    150,  "Доступ на 1 день"),
+                ("Basic - 7 дней",     "BASIC PC",    700,  "Доступ на 7 дней"),
+                ("Basic - 30 дней",    "BASIC PC",    1200, "Доступ на 30 дней"),
+                # BR MOD PC
+                ("BR Mod PC - 1 день",  "BR MOD PC",  150,  "Доступ на 1 день"),
+                ("BR Mod PC - 7 дней",  "BR MOD PC",  700,  "Доступ на 7 дней"),
+                ("BR Mod PC - 30 дней", "BR MOD PC",  1200, "Доступ на 30 дней"),
             ]
             self.cursor.executemany(
                 'INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)',
@@ -182,9 +192,10 @@ def main_keyboard():
 def category_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="💻 PC PANEL")],
-            [KeyboardButton(text="📱 ANDROID PANEL")],
-            [KeyboardButton(text="🍎 IOS PANEL")],
+            [KeyboardButton(text="🎯 AIM BOT PC")],
+            [KeyboardButton(text="🔒 PRIVATE PC")],
+            [KeyboardButton(text="⚙️ BASIC PC")],
+            [KeyboardButton(text="💥 BR MOD PC")],
             [KeyboardButton(text="◀️ НАЗАД")]
         ],
         resize_keyboard=True
@@ -298,12 +309,13 @@ async def shop(message: types.Message):
         reply_markup=category_keyboard()
     )
 
-@router.message(lambda msg: msg.text in ["💻 PC PANEL", "📱 ANDROID PANEL", "🍎 IOS PANEL"])
+@router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC"])
 async def show_products(message: types.Message):
     category_map = {
-        "💻 PC PANEL": "PC PANEL",
-        "📱 ANDROID PANEL": "ANDROID PANEL",
-        "🍎 IOS PANEL": "IOS PANEL"
+        "🎯 AIM BOT PC": "AIM BOT PC",
+        "🔒 PRIVATE PC": "PRIVATE PC",
+        "⚙️ BASIC PC":   "BASIC PC",
+        "💥 BR MOD PC":  "BR MOD PC",
     }
     category = category_map.get(message.text)
     
@@ -372,7 +384,12 @@ async def buy_product(call: types.CallbackQuery):
     # Генерируем ключ
     key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
     password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    days = 30 if "30" in name else 90
+    if "30" in name:
+        days = 30
+    elif "7" in name:
+        days = 7
+    else:
+        days = 1
     
     # Сохраняем ключ
     expiry = db.add_key(key, user_id, password, days)
