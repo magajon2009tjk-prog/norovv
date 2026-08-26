@@ -631,6 +631,12 @@ async def show_products_inline(call: types.CallbackQuery):
         await call.answer("📭 Нет товаров", show_alert=True)
         return
 
+    # Проверяем загружен ли файл для категории
+    product_file = db.get_product_file(category)
+    if not product_file:
+        await call.answer("🚫 Этот товар временно недоступен", show_alert=True)
+        return
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
     for product in products:
         product_id, name, price, desc = product
@@ -812,7 +818,7 @@ async def pay_with_transfer(call: types.CallbackQuery, state: FSMContext):
 @router.callback_query(lambda call: call.data == "upload_purchase_screenshot")
 async def request_purchase_screenshot(call: types.CallbackQuery):
     await call.message.edit_text(
-        "📤 Отправьте скриншот оплаты:",
+        "📸 Отправьте скриншот оплаты одним фото:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
         ])
@@ -882,7 +888,6 @@ async def purchase_accept(call: types.CallbackQuery):
     name, price = product
 
     await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True, state=None)
-
     try:
         await call.message.edit_caption(
             call.message.caption + f"\n\n✅ <b>Подтверждено, товар выдан</b>\n"
