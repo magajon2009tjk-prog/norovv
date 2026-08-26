@@ -112,13 +112,13 @@ class Database:
         if self.cursor.fetchone()[0] == 0:
             products = [
                 # AIM BOT PC
-                ("Aim Bot - 1 день",   "AIM BOT PC",  150,  "Доступ на 1 день"),
-                ("Aim Bot - 7 дней",   "AIM BOT PC",  700,  "Доступ на 7 дней"),
-                ("Aim Bot - 30 дней",  "AIM BOT PC",  1200, "Доступ на 30 дней"),
+                ("Aim Bot - 1 день",   "AIM BOT PC",  88,   "Доступ на 1 день"),
+                ("Aim Bot - 7 дней",   "AIM BOT PC",  444,  "Доступ на 7 дней"),
+                ("Aim Bot - 30 дней",  "AIM BOT PC",  1000, "Доступ на 30 дней"),
                 # PRIVATE PC
-                ("Private - 1 день",   "PRIVATE PC",  150,  "Доступ на 1 день"),
-                ("Private - 7 дней",   "PRIVATE PC",  700,  "Доступ на 7 дней"),
-                ("Private - 30 дней",  "PRIVATE PC",  1200, "Доступ на 30 дней"),
+                ("Private - 1 день",   "PRIVATE PC",  120,  "Доступ на 1 день"),
+                ("Private - 7 дней",   "PRIVATE PC",  555,  "Доступ на 7 дней"),
+                ("Private - 30 дней",  "PRIVATE PC",  1300, "Доступ на 30 дней"),
                 # BASIC PC
                 ("Basic - 1 день",     "BASIC PC",    150,  "Доступ на 1 день"),
                 ("Basic - 7 дней",     "BASIC PC",    700,  "Доступ на 7 дней"),
