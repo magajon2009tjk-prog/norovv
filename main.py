@@ -4,6 +4,7 @@ import random
 import string
 from datetime import datetime, timedelta
 import os
+import aiohttp
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, Router, types
@@ -26,6 +27,28 @@ ADMIN_IDS = [int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdi
 
 # ID группового чата для логов
 LOG_CHAT_ID = int(os.getenv("LOG_CHAT_ID", "-5487311704"))
+
+# ==================== КУРСЫ ВАЛЮТ ====================
+async def get_rates(rub_amount: int) -> str:
+    """Конвертирует рубли в USD, UZS, TJS по актуальному курсу."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://api.exchangerate-api.com/v4/latest/RUB",
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as resp:
+                data = await resp.json()
+                rates = data.get("rates", {})
+                usd = round(rub_amount * rates.get("USD", 0), 2)
+                uzs = round(rub_amount * rates.get("UZS", 0))
+                tjs = round(rub_amount * rates.get("TJS", 0), 1)
+                return f"<b>{rub_amount}₽</b> | <b>{usd}$</b> | <b>{uzs:,} сум</b> | <b>{tjs} сомони</b>".replace(",", " ")
+    except Exception:
+        # Фоллбэк на фиксированные курсы если API недоступен
+        usd = round(rub_amount / 90, 2)
+        uzs = round(rub_amount * 140)
+        tjs = round(rub_amount * 10.5, 1)
+        return f"<b>{rub_amount}₽</b> | <b>{usd}$</b> | <b>{uzs} сум</b> | <b>{tjs} сомони</b>"
 
 # ==================== РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ ====================
 PAYMENT_DETAILS = """
@@ -671,11 +694,6 @@ async def buy_product(call: types.CallbackQuery, state: FSMContext):
 
     name, price, desc = product
 
-    # Конвертация валют (примерные курсы)
-    usd = round(price / 90, 1)
-    uzs = round(price * 140)
-    tjs = round(price * 10.5, 1)
-
     # Определяем дни
     if "365" in name:
         days = 365
@@ -691,6 +709,7 @@ async def buy_product(call: types.CallbackQuery, state: FSMContext):
         days = 1
 
     balance = db.get_user_balance(user_id)
+    rates_str = await get_rates(price)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💰 Оплатить с баланса", callback_data=f"pay_balance:{product_id}")],
@@ -703,7 +722,7 @@ async def buy_product(call: types.CallbackQuery, state: FSMContext):
         f"📦 Товар: <b>{name}</b>\n"
         f"📅 Дней: <b>{days}</b>\n\n"
         f"💵 Сумма в разных валютах:\n"
-        f"<b>{price}₽</b> | <b>{usd}$</b> | <b>{uzs} сум</b> | <b>{tjs} сомони</b>\n\n"
+        f"{rates_str}\n\n"
         f"💰 Ваш баланс: <b>{balance}₽</b>",
         reply_markup=keyboard,
         parse_mode="HTML"
@@ -756,9 +775,7 @@ async def pay_with_transfer(call: types.CallbackQuery, state: FSMContext):
         return
 
     name, price = product
-    usd = round(price / 90, 1)
-    uzs = round(price * 140)
-    tjs = round(price * 10.5, 1)
+    rates_str = await get_rates(price)
 
     await state.set_state(Purchase.waiting_for_payment_screenshot)
     await state.update_data(product_id=product_id, price=price, name=name, days=days)
@@ -772,7 +789,7 @@ async def pay_with_transfer(call: types.CallbackQuery, state: FSMContext):
         f"💳 <b>Оплата переводом</b>\n\n"
         f"📦 Товар: <b>{name}</b>\n"
         f"📅 Дней: <b>{days}</b>\n"
-        f"💵 Сумма к оплате: <b>{price}₽</b> | <b>{usd}$</b> | <b>{uzs} сум</b> | <b>{tjs} сомони</b>\n\n"
+        f"💵 Сумма к оплате: {rates_str}\n\n"
         f"<b>Реквизиты для оплаты:</b>\n\n"
         f"{PAYMENT_DETAILS}\n"
         f"📸 <b>ВАЖНО:</b> После оплаты сделайте скриншот чека!\n\n"
