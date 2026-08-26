@@ -32,7 +32,8 @@ PAYMENT_DETAILS = """
 📱 +992003443843 (ДУШАНБЕ СИТИ)
 
 🏦 АЛЬФА БАНК
-📱 +992003443844
+📱 +992003443844 (ДУШАНБЕ СИТИ)
+💳 Карта: 5058270377765135
 
 🏦 СБЕРБАНК
 📱 +7 977 176-68-84
@@ -515,8 +516,7 @@ async def buy_product(call: types.CallbackQuery):
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
     await call.message.edit_text(
-        "📂 Выберите категорию товара:",
-        reply_markup=category_keyboard()
+        "📂 Выберите платформу:",
     )
     await call.answer()
 
