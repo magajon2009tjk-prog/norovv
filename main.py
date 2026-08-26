@@ -1431,6 +1431,7 @@ async def admin_enter_password(message: types.Message, state: FSMContext):
     row = db.cursor.fetchone()
     product_name = row[0] if row else "Неизвестно"
 
+    delivered = False
     try:
         await message.bot.send_message(
             target_user_id,
@@ -1440,9 +1441,42 @@ async def admin_enter_password(message: types.Message, state: FSMContext):
             f"🔒 Password: <code>{panel_pass}</code>",
             parse_mode="HTML"
         )
-        await message.answer(f"✅ Данные отправлены клиенту <code>{target_user_id}</code>", parse_mode="HTML")
+        delivered = True
     except Exception as e:
-        await message.answer(f"❌ Ошибка отправки: {e}")
+        print(f"Ошибка отправки клиенту {target_user_id}: {e}")
+
+    if delivered:
+        await message.answer(
+            f"✅ Данные успешно отправлены клиенту!\n"
+            f"👤 ID: <code>{target_user_id}</code>\n"
+            f"🖥 Username: <code>{panel_user}</code>\n"
+            f"🔒 Password: <code>{panel_pass}</code>",
+            parse_mode="HTML"
+        )
+        # Уведомление в лог-чат
+        try:
+            await message.bot.send_message(
+                LOG_CHAT_ID,
+                f"✅ <b>Ключ выдан!</b>\n"
+                f"👤 Клиент ID: <code>{target_user_id}</code>\n"
+                f"📦 Товар: <b>{product_name}</b>\n"
+                f"🖥 Username: <code>{panel_user}</code>\n"
+                f"🔒 Password: <code>{panel_pass}</code>\n"
+                f"👨‍💼 Выдал: @{message.from_user.username or message.from_user.first_name}",
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            print(f"Ошибка отправки в лог-чат: {e}")
+    else:
+        await message.answer(
+            f"❌ <b>Не удалось отправить клиенту!</b>\n"
+            f"Возможно пользователь заблокировал бота.\n\n"
+            f"Данные которые нужно передать вручную:\n"
+            f"👤 ID: <code>{target_user_id}</code>\n"
+            f"🖥 Username: <code>{panel_user}</code>\n"
+            f"🔒 Password: <code>{panel_pass}</code>",
+            parse_mode="HTML"
+        )
 
     await state.clear()
 
