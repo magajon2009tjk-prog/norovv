@@ -117,6 +117,18 @@ class Database:
                 # PRIME MOD ANDROID
                 ("Prime Mod - 5 дней",  "PRIME MOD", 300, "Доступ на 5 дней"),
                 ("Prime Mod - 10 дней", "PRIME MOD", 500, "Доступ на 10 дней"),
+                # FLOURITE PANEL IOS
+                ("Flourite Panel - 1 день",  "FLOURITE PANEL IOS", 400,  "Доступ на 1 день"),
+                ("Flourite Panel - 7 дней",  "FLOURITE PANEL IOS", 1000, "Доступ на 7 дней"),
+                ("Flourite Panel - 30 дней", "FLOURITE PANEL IOS", 2000, "Доступ на 30 дней"),
+                # MIGULE PANEL IOS
+                ("Migule Panel - 1 день",  "MIGULE PANEL IOS", 400,  "Доступ на 1 день"),
+                ("Migule Panel - 7 дней",  "MIGULE PANEL IOS", 1100, "Доступ на 7 дней"),
+                ("Migule Panel - 30 дней", "MIGULE PANEL IOS", 1999, "Доступ на 30 дней"),
+                # PROXY IOS
+                ("Proxy iOS - 30 дней", "PROXY IOS", 1000, "Доступ на 30 дней"),
+                # СЕРТИФИКАТ IOS
+                ("Сертификат iOS", "СЕРТИФИКАТ IOS", 0, "Установка сертификата"),
             ]
             self.cursor.executemany(
                 'INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)',
@@ -209,6 +221,10 @@ def category_keyboard():
             [KeyboardButton(text="💧 DRIP CLIENT")],
             [KeyboardButton(text="🎮 HG CHEATS")],
             [KeyboardButton(text="⭐ PRIME MOD")],
+            [KeyboardButton(text="🍏 FLOURITE PANEL IOS")],
+            [KeyboardButton(text="🍎 MIGULE PANEL IOS")],
+            [KeyboardButton(text="🔗 PROXY IOS")],
+            [KeyboardButton(text="📜 СЕРТИФИКАТ IOS")],
             [KeyboardButton(text="◀️ НАЗАД")]
         ],
         resize_keyboard=True
@@ -322,16 +338,20 @@ async def shop(message: types.Message):
         reply_markup=category_keyboard()
     )
 
-@router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC", "💧 DRIP CLIENT", "🎮 HG CHEATS", "⭐ PRIME MOD"])
+@router.message(lambda msg: msg.text in ["🎯 AIM BOT PC", "🔒 PRIVATE PC", "⚙️ BASIC PC", "💥 BR MOD PC", "💧 DRIP CLIENT", "🎮 HG CHEATS", "⭐ PRIME MOD", "🍏 FLOURITE PANEL IOS", "🍎 MIGULE PANEL IOS", "🔗 PROXY IOS", "📜 СЕРТИФИКАТ IOS"])
 async def show_products(message: types.Message):
     category_map = {
-        "🎯 AIM BOT PC":   "AIM BOT PC",
-        "🔒 PRIVATE PC":   "PRIVATE PC",
-        "⚙️ BASIC PC":     "BASIC PC",
-        "💥 BR MOD PC":    "BR MOD PC",
-        "💧 DRIP CLIENT":  "DRIP CLIENT",
-        "🎮 HG CHEATS":    "HG CHEATS",
-        "⭐ PRIME MOD":    "PRIME MOD",
+        "🎯 AIM BOT PC":          "AIM BOT PC",
+        "🔒 PRIVATE PC":          "PRIVATE PC",
+        "⚙️ BASIC PC":            "BASIC PC",
+        "💥 BR MOD PC":           "BR MOD PC",
+        "💧 DRIP CLIENT":         "DRIP CLIENT",
+        "🎮 HG CHEATS":           "HG CHEATS",
+        "⭐ PRIME MOD":           "PRIME MOD",
+        "🍏 FLOURITE PANEL IOS":  "FLOURITE PANEL IOS",
+        "🍎 MIGULE PANEL IOS":    "MIGULE PANEL IOS",
+        "🔗 PROXY IOS":           "PROXY IOS",
+        "📜 СЕРТИФИКАТ IOS":      "СЕРТИФИКАТ IOS",
     }
     category = category_map.get(message.text)
     
