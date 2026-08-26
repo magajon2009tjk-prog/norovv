@@ -75,7 +75,10 @@ PAYMENT_DETAILS = """
 
 # ==================== БАЗА ДАННЫХ ====================
 class Database:
-    def __init__(self, db_name="shop.db"):
+    def __init__(self, db_name=None):
+        if db_name is None:
+            import os
+            db_name = os.getenv("DB_PATH", "shop.db")
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_tables()
@@ -527,7 +530,12 @@ async def topup_reject(call: types.CallbackQuery):
 @router.callback_query(lambda call: call.data == "back_to_main")
 async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await call.message.edit_text(
+    try:
+        await call.message.delete()
+    except:
+        pass
+    await call.bot.send_message(
+        call.from_user.id,
         "🏠 Главное меню",
         reply_markup=main_keyboard()
     )
@@ -1010,9 +1018,12 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
 
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
-    await call.message.edit_text(
-        "📂 Выберите платформу:",
-    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC")],
+        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID")],
+        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS")],
+    ])
+    await call.message.edit_text("📂 Выберите платформу:", reply_markup=keyboard)
     await call.answer()
 
 @router.callback_query(lambda call: call.data == "topup")
@@ -1561,7 +1572,8 @@ async def main():
     print(f"👤 Админы: {ADMIN_IDS}")
     
     try:
-        await dp.start_polling(bot)
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         db.close()
 
