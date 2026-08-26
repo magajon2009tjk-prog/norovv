@@ -322,22 +322,45 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         # Получаем информацию о фото
         photo = message.photo[-1]
         file_id = photo.file_id
-        
-        # Уведомление в лог-чат
+        user_id = message.from_user.id
+        username = message.from_user.username or message.from_user.first_name
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ 100₽",  callback_data=f"topup_accept:{user_id}:100"),
+                InlineKeyboardButton(text="✅ 200₽",  callback_data=f"topup_accept:{user_id}:200"),
+                InlineKeyboardButton(text="✅ 300₽",  callback_data=f"topup_accept:{user_id}:300"),
+            ],
+            [
+                InlineKeyboardButton(text="✅ 500₽",  callback_data=f"topup_accept:{user_id}:500"),
+                InlineKeyboardButton(text="✅ 700₽",  callback_data=f"topup_accept:{user_id}:700"),
+                InlineKeyboardButton(text="✅ 1000₽", callback_data=f"topup_accept:{user_id}:1000"),
+            ],
+            [
+                InlineKeyboardButton(text="✅ 1500₽", callback_data=f"topup_accept:{user_id}:1500"),
+                InlineKeyboardButton(text="✅ 2000₽", callback_data=f"topup_accept:{user_id}:2000"),
+                InlineKeyboardButton(text="✅ 3000₽", callback_data=f"topup_accept:{user_id}:3000"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"topup_reject:{user_id}"),
+            ],
+        ])
+
         try:
             await message.bot.send_photo(
                 LOG_CHAT_ID,
                 photo=file_id,
-                caption=f"📥 Новый запрос на пополнение!\n"
-                        f"👤 Пользователь: @{message.from_user.username or 'Не указан'}\n"
-                        f"🆔 ID: {message.from_user.id}\n"
-                        f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
-                        f"Для пополнения используйте команду:\n"
-                        f"/add_balance {message.from_user.id} <сумма>"
+                caption=f"📥 <b>Новый запрос на пополнение!</b>\n"
+                        f"👤 Пользователь: @{username}\n"
+                        f"🆔 ID: <code>{user_id}</code>\n"
+                        f"💰 Текущий баланс: {db.get_user_balance(user_id)}₽\n\n"
+                        f"Выберите сумму для зачисления:",
+                reply_markup=keyboard,
+                parse_mode="HTML"
             )
         except Exception as e:
             print(f"Ошибка отправки в лог-чат: {e}")
-        
+
         await message.answer(
             "✅ Ваш скриншот отправлен на проверку!\n"
             "⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
@@ -350,6 +373,57 @@ async def process_screenshot(message: types.Message, state: FSMContext):
             "❌ Пожалуйста, отправьте фото скриншота платежа.",
             reply_markup=main_keyboard()
         )
+
+# ---------- ПРИНЯТЬ ПОПОЛНЕНИЕ ----------
+@router.callback_query(lambda call: call.data.startswith("topup_accept:"))
+async def topup_accept(call: types.CallbackQuery):
+    parts = call.data.split(":")
+    user_id = int(parts[1])
+    amount = int(parts[2])
+
+    db.update_balance(user_id, amount)
+
+    try:
+        await call.bot.send_message(
+            user_id,
+            f"✅ На ваш счёт поступило <b>{amount}₽</b>!\n"
+            f"💰 Текущий баланс: <b>{db.get_user_balance(user_id)}₽</b>",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Не удалось уведомить пользователя {user_id}: {e}")
+
+    await call.message.edit_caption(
+        call.message.caption + f"\n\n✅ <b>Принято — зачислено {amount}₽</b>\n"
+                               f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
+        parse_mode="HTML"
+    )
+    await call.answer(f"✅ Зачислено {amount}₽")
+
+# ---------- ОТКЛОНИТЬ ПОПОЛНЕНИЕ ----------
+@router.callback_query(lambda call: call.data.startswith("topup_reject:"))
+async def topup_reject(call: types.CallbackQuery):
+    user_id = int(call.data.split(":")[1])
+
+    try:
+        await call.bot.send_message(
+            user_id,
+            "❌ Ваш чек был отклонён.\n\n"
+            "Возможные причины:\n"
+            "• Сумма не совпадает\n"
+            "• Скриншот нечитаемый\n"
+            "• Платёж не найден\n\n"
+            "Обратитесь в поддержку: @NorovK1ng"
+        )
+    except Exception as e:
+        print(f"Не удалось уведомить пользователя {user_id}: {e}")
+
+    await call.message.edit_caption(
+        call.message.caption + f"\n\n❌ <b>Отклонено</b>\n"
+                               f"👤 Обработал: @{call.from_user.username or call.from_user.first_name}",
+        parse_mode="HTML"
+    )
+    await call.answer("❌ Заявка отклонена")
 
 @router.callback_query(lambda call: call.data == "back_to_main")
 async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext):
