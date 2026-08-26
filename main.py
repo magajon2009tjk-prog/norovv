@@ -716,7 +716,7 @@ async def profile(message: types.Message):
     user = db.get_user(user_id)
     
     if not user:
-        await message.answer("❌ Пользователь не найден")
+        await message.answer("❌ Пользователь не найден\n\nНажмите /start")
         return
     
     balance = db.get_user_balance(user_id)
