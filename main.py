@@ -24,6 +24,9 @@ if not BOT_TOKEN:
 _admin_ids_raw = os.getenv("ADMIN_IDS", "")
 ADMIN_IDS = [int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdigit()]
 
+# ID группового чата для логов
+LOG_CHAT_ID = int(os.getenv("LOG_CHAT_ID", "-5487311704"))
+
 # ==================== РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ ====================
 PAYMENT_DETAILS = """
 💳 РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ:
@@ -320,21 +323,20 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         photo = message.photo[-1]
         file_id = photo.file_id
         
-        # Уведомление админов
-        for admin_id in ADMIN_IDS:
-            try:
-                await message.bot.send_photo(
-                    admin_id,
-                    photo=file_id,
-                    caption=f"📥 Новый запрос на пополнение!\n"
-                            f"👤 Пользователь: @{message.from_user.username or 'Не указан'}\n"
-                            f"🆔 ID: {message.from_user.id}\n"
-                            f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
-                            f"Для пополнения используйте команду:\n"
-                            f"/add_balance {message.from_user.id} <сумма>"
-                )
-            except:
-                pass
+        # Уведомление в лог-чат
+        try:
+            await message.bot.send_photo(
+                LOG_CHAT_ID,
+                photo=file_id,
+                caption=f"📥 Новый запрос на пополнение!\n"
+                        f"👤 Пользователь: @{message.from_user.username or 'Не указан'}\n"
+                        f"🆔 ID: {message.from_user.id}\n"
+                        f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
+                        f"Для пополнения используйте команду:\n"
+                        f"/add_balance {message.from_user.id} <сумма>"
+            )
+        except Exception as e:
+            print(f"Ошибка отправки в лог-чат: {e}")
         
         await message.answer(
             "✅ Ваш скриншот отправлен на проверку!\n"
@@ -492,7 +494,7 @@ async def buy_product(call: types.CallbackQuery):
     )
     await call.answer("🎉 Покупка успешна!")
 
-    # Отправляем чек всем админам (лог покупки)
+    # Отправляем чек в лог-чат
     receipt = (
         f"🧾 <b>ЧЕК О ПОКУПКЕ</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
@@ -507,11 +509,10 @@ async def buy_product(call: types.CallbackQuery):
         f"💰 Баланс после: {db.get_user_balance(user_id)}₽\n"
         f"━━━━━━━━━━━━━━━━━━"
     )
-    for admin_id in ADMIN_IDS:
-        try:
-            await call.bot.send_message(admin_id, receipt, parse_mode="HTML")
-        except:
-            pass
+    try:
+        await call.bot.send_message(LOG_CHAT_ID, receipt, parse_mode="HTML")
+    except Exception as e:
+        print(f"Ошибка отправки чека в лог-чат: {e}")
 
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
