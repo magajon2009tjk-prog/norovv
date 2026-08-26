@@ -135,7 +135,7 @@ class Database:
                 # PROXY IOS
                 ("Proxy iOS - 30 дней", "PROXY IOS", 1000, "Доступ на 30 дней"),
                 # СЕРТИФИКАТ IOS
-                ("Сертификат iOS", "СЕРТИФИКАТ IOS", 0, "Установка сертификата"),
+                ("Сертификат iOS - 1 год (365 дней)", "СЕРТИФИКАТ IOS", 800, "Сертификат на 365 дней"),
             ]
             self.cursor.executemany(
                 'INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)',
@@ -469,7 +469,9 @@ async def buy_product(call: types.CallbackQuery):
     # Генерируем ключ
     key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
     password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    if "30" in name:
+    if "365" in name:
+        days = 365
+    elif "30" in name:
         days = 30
     elif "10" in name:
         days = 10
