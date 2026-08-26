@@ -747,7 +747,7 @@ async def buy_product(call: types.CallbackQuery, state: FSMContext):
 
 # ---------- ОПЛАТА С БАЛАНСА ----------
 @router.callback_query(lambda call: call.data.startswith("pay_balance:"))
-async def pay_with_balance(call: types.CallbackQuery):
+async def pay_with_balance(call: types.CallbackQuery, state: FSMContext):
     product_id = int(call.data.split(":")[1])
     user_id = call.from_user.id
 
@@ -775,7 +775,7 @@ async def pay_with_balance(call: types.CallbackQuery):
         return
 
     db.update_balance(user_id, -price)
-    await _complete_purchase(call, product_id, name, price, user_id, state=state)
+    await _complete_purchase(call, product_id, name, price, user_id)
 
 # ---------- ОПЛАТА ПЕРЕВОДОМ ----------
 @router.callback_query(lambda call: call.data.startswith("pay_transfer:"))
@@ -887,7 +887,7 @@ async def purchase_accept(call: types.CallbackQuery):
         return
     name, price = product
 
-    await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True, state=None)
+    await _complete_purchase(call, product_id, name, price, user_id, via_transfer=True)
     try:
         await call.message.edit_caption(
             call.message.caption + f"\n\n✅ <b>Подтверждено, товар выдан</b>\n"
@@ -929,7 +929,7 @@ async def purchase_reject(call: types.CallbackQuery):
     await call.answer("❌ Отклонено")
 
 # ---------- ОБЩАЯ ФУНКЦИЯ ВЫДАЧИ ТОВАРА ----------
-async def _complete_purchase(call, product_id, name, price, user_id, via_transfer=False, state=None):
+async def _complete_purchase(call, product_id, name, price, user_id, via_transfer=False):
     key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
     password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
