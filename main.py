@@ -100,6 +100,26 @@ class Database:
             )
         ''')
 
+        # Таблица pending выдачи ключей (для диалога admin → бот в личке)
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pending_key_issue (
+                admin_id INTEGER PRIMARY KEY,
+                target_user_id INTEGER,
+                product_id INTEGER,
+                panel_user TEXT,
+                step TEXT DEFAULT 'username'
+            )
+        ''')
+        # Миграция: добавляем колонки если их нет (для старых БД)
+        try:
+            self.cursor.execute('ALTER TABLE pending_key_issue ADD COLUMN panel_user TEXT')
+        except:
+            pass
+        try:
+            self.cursor.execute("ALTER TABLE pending_key_issue ADD COLUMN step TEXT DEFAULT 'username'")
+        except:
+            pass
+
         # Таблица файлов товаров
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS product_files (
@@ -237,6 +257,12 @@ class Database:
     def get_all_products(self):
         self.cursor.execute('SELECT id, name, category, price, description FROM products')
         return self.cursor.fetchall()
+
+    def get_user_by_username(self, username):
+        # username без @
+        username = username.lstrip("@")
+        self.cursor.execute('SELECT user_id FROM users WHERE LOWER(username) = LOWER(?)', (username,))
+        return self.cursor.fetchone()
 
     def close(self):
         self.conn.close()
@@ -1268,6 +1294,53 @@ async def admin_stats(message: types.Message):
         f"💰 Общий баланс: {total_balance}₽"
     )
 
+# ---------- ОТПРАВКА СООБЩЕНИЯ КЛИЕНТУ ----------
+@router.message(Command("sms"))
+async def admin_sms(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("⛔ У вас нет прав для этой команды")
+        return
+
+    # Формат: /sms @username текст  или  /sms user_id текст
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 3:
+        await message.answer(
+            "❌ Использование:\n"
+            "<code>/sms @username Ваш текст</code>\n"
+            "или\n"
+            "<code>/sms 123456789 Ваш текст</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    target = parts[1]
+    text = parts[2]
+
+    # Определяем user_id
+    user_id = None
+    if target.startswith("@"):
+        row = db.get_user_by_username(target)
+        if not row:
+            await message.answer(
+                f"❌ Пользователь <code>{target}</code> не найден в базе.\n"
+                f"Он должен был хотя бы раз написать боту.",
+                parse_mode="HTML"
+            )
+            return
+        user_id = row[0]
+    else:
+        try:
+            user_id = int(target)
+        except ValueError:
+            await message.answer("❌ Укажите @username или числовой ID.", parse_mode="HTML")
+            return
+
+    try:
+        await message.bot.send_message(user_id, text)
+        await message.answer(f"✅ Сообщение отправлено <code>{target}</code>", parse_mode="HTML")
+    except Exception as e:
+        await message.answer(f"❌ Не удалось отправить. Пользователь мог заблокировать бота.\n<code>{e}</code>", parse_mode="HTML")
+
 # ==================== КОМАНДЫ ЗАГРУЗКИ ФАЙЛОВ ====================
 
 # Маппинг команд к категориям
@@ -1303,24 +1376,101 @@ def make_upload_handler(category):
 @router.message(lambda msg: msg.chat.type == "private" and msg.from_user.id in ADMIN_IDS and msg.text and not msg.text.startswith("/"))
 async def admin_private_message(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
-    if current_state is not None:
-        return  # Уже обрабатывается FSM — не перехватываем
+    # Не перехватываем если идёт загрузка файла
+    if current_state == UploadFile.waiting_for_file.state:
+        return
+
+    # Сбрасываем любой старый FSM state чтобы не мешал
+    await state.clear()
+
+    admin_id = message.from_user.id
+
+    # Создаём таблицу если не существует
+    db.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pending_key_issue (
+            admin_id INTEGER PRIMARY KEY,
+            target_user_id INTEGER,
+            product_id INTEGER,
+            panel_user TEXT,
+            step TEXT DEFAULT 'username'
+        )
+    ''')
+    db.conn.commit()
 
     # Проверяем есть ли pending запрос
-    db.cursor.execute('CREATE TABLE IF NOT EXISTS pending_key_issue (admin_id INTEGER PRIMARY KEY, target_user_id INTEGER, product_id INTEGER)')
-    db.conn.commit()
-    db.cursor.execute('SELECT target_user_id, product_id FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
+    db.cursor.execute('SELECT target_user_id, product_id, panel_user, step FROM pending_key_issue WHERE admin_id = ?', (admin_id,))
     row = db.cursor.fetchone()
-    if row:
-        target_user_id, product_id = row
-        await state.set_state(KeyRequest.waiting_for_user)
-        await state.update_data(target_user_id=target_user_id, product_id=product_id)
-        db.cursor.execute('DELETE FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
+    if not row:
+        return  # Нет pending — игнорируем
+
+    target_user_id, product_id, panel_user, step = row
+
+    if step == 'username':
+        # Сохраняем username, переходим к шагу password
+        db.cursor.execute(
+            'UPDATE pending_key_issue SET panel_user = ?, step = ? WHERE admin_id = ?',
+            (message.text.strip(), 'password', admin_id)
+        )
         db.conn.commit()
-        # Обрабатываем текущее сообщение как username
-        await state.update_data(panel_user=message.text.strip())
-        await state.set_state(KeyRequest.waiting_for_pass)
         await message.answer("🔒 Теперь введите <b>Password</b>:", parse_mode="HTML")
+
+    elif step == 'password':
+        # Получаем всё и отправляем клиенту
+        panel_pass = message.text.strip()
+
+        # Удаляем pending
+        db.cursor.execute('DELETE FROM pending_key_issue WHERE admin_id = ?', (admin_id,))
+        db.conn.commit()
+
+        db.cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
+        prod_row = db.cursor.fetchone()
+        product_name = prod_row[0] if prod_row else "Неизвестно"
+
+        delivered = False
+        try:
+            await message.bot.send_message(
+                target_user_id,
+                f"🎉 <b>Ваши данные для входа готовы!</b>\n\n"
+                f"📦 Товар: <b>{product_name}</b>\n"
+                f"🖥 Username: <code>{panel_user}</code>\n"
+                f"🔒 Password: <code>{panel_pass}</code>",
+                parse_mode="HTML"
+            )
+            delivered = True
+        except Exception as e:
+            print(f"Ошибка отправки клиенту {target_user_id}: {e}")
+
+        if delivered:
+            await message.answer(
+                f"✅ Данные успешно отправлены клиенту!\n"
+                f"👤 ID: <code>{target_user_id}</code>\n"
+                f"🖥 Username: <code>{panel_user}</code>\n"
+                f"🔒 Password: <code>{panel_pass}</code>",
+                parse_mode="HTML"
+            )
+            try:
+                await message.bot.send_message(
+                    LOG_CHAT_ID,
+                    f"✅ <b>Ключ выдан!</b>\n"
+                    f"👤 Клиент ID: <code>{target_user_id}</code>\n"
+                    f"📦 Товар: <b>{product_name}</b>\n"
+                    f"🖥 Username: <code>{panel_user}</code>\n"
+                    f"🔒 Password: <code>{panel_pass}</code>\n"
+                    f"👨‍💼 Выдал: @{message.from_user.username or message.from_user.first_name}",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                print(f"Ошибка отправки в лог-чат: {e}")
+        else:
+            await message.answer(
+                f"❌ <b>Не удалось отправить клиенту!</b>\n"
+                f"Возможно пользователь заблокировал бота.\n\n"
+                f"Данные которые нужно передать вручную:\n"
+                f"👤 ID: <code>{target_user_id}</code>\n"
+                f"🖥 Username: <code>{panel_user}</code>\n"
+                f"🔒 Password: <code>{panel_pass}</code>",
+                parse_mode="HTML"
+            )
 
 for cmd, cat in UPLOAD_COMMANDS.items():
     router.message(Command(cmd))(make_upload_handler(cat))
@@ -1394,24 +1544,15 @@ async def request_key_start(call: types.CallbackQuery, state: FSMContext):
     except:
         pass
 
-    # Отправляем запрос в лог-чат с полями для заполнения
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="✅ Выдать ключ",
-            callback_data=f"give_key:{user_id}:{product_id}"
-        )]
-    ])
-
+    # Отправляем в лог-чат с готовой командой для копирования
     try:
         await call.bot.send_message(
             LOG_CHAT_ID,
             f"🔑 <b>Запрос ключа!</b>\n\n"
             f"👤 @{username} (ID: <code>{user_id}</code>)\n"
             f"📦 Товар: <b>{product_name}</b>\n\n"
-            f"📝 Отправьте клиенту:\n"
-            f"🖥 Username: \n"
-            f"🔒 Password: ",
-            reply_markup=keyboard,
+            f"📋 Скопируйте команду, заполните данные и отправьте боту в личку:\n\n"
+            f"<code>/sms @{username} 🎉 Ваши данные для входа:\n\n📦 Товар: {product_name}\n🖥 Username: ВАШ_ЮЗЕРНЕЙМ\n🔒 Password: ВАШ_ПАРОЛЬ</code>",
             parse_mode="HTML"
         )
     except Exception as e:
@@ -1430,7 +1571,6 @@ async def give_key_handler(call: types.CallbackQuery, state: FSMContext):
     parts = call.data.split(":")
     user_id = int(parts[1])
     product_id = int(parts[2])
-
     admin_id = call.from_user.id
 
     try:
@@ -1438,7 +1578,13 @@ async def give_key_handler(call: types.CallbackQuery, state: FSMContext):
     except:
         pass
 
-    # Отправляем запрос ЛИЧНО админу в личку
+    # Сохраняем pending в БД с шагом 'username'
+    db.cursor.execute(
+        'INSERT OR REPLACE INTO pending_key_issue (admin_id, target_user_id, product_id, panel_user, step) VALUES (?, ?, ?, NULL, ?)',
+        (admin_id, user_id, product_id, 'username')
+    )
+    db.conn.commit()
+
     try:
         await call.bot.send_message(
             admin_id,
@@ -1446,114 +1592,18 @@ async def give_key_handler(call: types.CallbackQuery, state: FSMContext):
             f"(Напишите сюда в личку боту, не в группу)",
             parse_mode="HTML"
         )
+        await call.answer("✅ Проверьте личные сообщения бота!")
     except Exception as e:
-        await call.answer(f"❌ Не могу написать вам в личку. Напишите боту /start сначала.", show_alert=True)
-        return
-
-    # Используем простой способ - сохраняем через state напрямую
-    # state здесь привязан к chat где была нажата кнопка (группа)
-    # Нам нужно установить state для личного чата админа
-    # Делаем это через отдельный механизм - сохраняем pending в БД
-    db.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS pending_key_issue (
-            admin_id INTEGER PRIMARY KEY,
-            target_user_id INTEGER,
-            product_id INTEGER
-        )
-    ''')
-    db.conn.commit()
-    db.cursor.execute(
-        'INSERT OR REPLACE INTO pending_key_issue (admin_id, target_user_id, product_id) VALUES (?, ?, ?)',
-        (admin_id, user_id, product_id)
-    )
-    db.conn.commit()
-
-    await call.answer("✅ Проверьте личные сообщения бота!")
+        db.cursor.execute('DELETE FROM pending_key_issue WHERE admin_id = ?', (admin_id,))
+        db.conn.commit()
+        await call.answer("❌ Напишите боту /start сначала.", show_alert=True)
 
 @router.message(KeyRequest.waiting_for_user)
-async def admin_enter_username(message: types.Message, state: FSMContext):
-    # Проверяем есть ли pending запрос для этого админа
-    db.cursor.execute('SELECT target_user_id, product_id FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
-    row = db.cursor.fetchone()
-    if row:
-        target_user_id, product_id = row
-        await state.update_data(panel_user=message.text.strip(), target_user_id=target_user_id, product_id=product_id)
-        # Удаляем pending
-        db.cursor.execute('DELETE FROM pending_key_issue WHERE admin_id = ?', (message.from_user.id,))
-        db.conn.commit()
-    else:
-        await state.update_data(panel_user=message.text.strip())
-
-    await state.set_state(KeyRequest.waiting_for_pass)
-    await message.answer("🔒 Теперь введите <b>Password</b>:", parse_mode="HTML")
+async def admin_enter_username_fsm(message: types.Message, state: FSMContext):
+    await state.clear()
 
 @router.message(KeyRequest.waiting_for_pass)
-async def admin_enter_password(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    # Дебаг - показываем что получили из state
-    await message.answer(
-        f"🔍 Дебаг:\n"
-        f"panel_user: <code>{data.get('panel_user')}</code>\n"
-        f"target_user_id: <code>{data.get('target_user_id')}</code>\n"
-        f"product_id: <code>{data.get('product_id')}</code>",
-        parse_mode="HTML"
-    )
-    panel_user = data.get("panel_user")
-    panel_pass = message.text.strip()
-    target_user_id = data.get("target_user_id")
-    product_id = data.get("product_id")
-
-    db.cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
-    row = db.cursor.fetchone()
-    product_name = row[0] if row else "Неизвестно"
-
-    delivered = False
-    try:
-        await message.bot.send_message(
-            target_user_id,
-            f"🎉 <b>Ваши данные для входа готовы!</b>\n\n"
-            f"📦 Товар: <b>{product_name}</b>\n"
-            f"🖥 Username: <code>{panel_user}</code>\n"
-            f"🔒 Password: <code>{panel_pass}</code>",
-            parse_mode="HTML"
-        )
-        delivered = True
-    except Exception as e:
-        print(f"Ошибка отправки клиенту {target_user_id}: {e}")
-
-    if delivered:
-        await message.answer(
-            f"✅ Данные успешно отправлены клиенту!\n"
-            f"👤 ID: <code>{target_user_id}</code>\n"
-            f"🖥 Username: <code>{panel_user}</code>\n"
-            f"🔒 Password: <code>{panel_pass}</code>",
-            parse_mode="HTML"
-        )
-        # Уведомление в лог-чат
-        try:
-            await message.bot.send_message(
-                LOG_CHAT_ID,
-                f"✅ <b>Ключ выдан!</b>\n"
-                f"👤 Клиент ID: <code>{target_user_id}</code>\n"
-                f"📦 Товар: <b>{product_name}</b>\n"
-                f"🖥 Username: <code>{panel_user}</code>\n"
-                f"🔒 Password: <code>{panel_pass}</code>\n"
-                f"👨‍💼 Выдал: @{message.from_user.username or message.from_user.first_name}",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            print(f"Ошибка отправки в лог-чат: {e}")
-    else:
-        await message.answer(
-            f"❌ <b>Не удалось отправить клиенту!</b>\n"
-            f"Возможно пользователь заблокировал бота.\n\n"
-            f"Данные которые нужно передать вручную:\n"
-            f"👤 ID: <code>{target_user_id}</code>\n"
-            f"🖥 Username: <code>{panel_user}</code>\n"
-            f"🔒 Password: <code>{panel_pass}</code>",
-            parse_mode="HTML"
-        )
-
+async def admin_enter_password_fsm(message: types.Message, state: FSMContext):
     await state.clear()
 
 # ==================== ЗАПУСК БОТА ====================
