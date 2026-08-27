@@ -1,6 +1,5 @@
-﻿import asyncio
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import asyncio
+import sqlite3
 import random
 import string
 from datetime import datetime, timedelta
@@ -78,7 +77,6 @@ PAYMENT_DETAILS = """
 class Database:
     def __init__(self, db_name=None):
         if db_name is None:
-            import os
             db_name = os.getenv("DB_PATH", "shop.db")
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
