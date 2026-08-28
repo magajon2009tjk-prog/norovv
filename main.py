@@ -407,8 +407,8 @@ async def process_amount(message: types.Message, state: FSMContext):
     await state.set_state(TopUp.waiting_for_screenshot)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot_noop")],
-        [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+        [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot_noop", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🔙 Отмена",             callback_data="back_to_main",          icon_custom_emoji_id="5226566554568660249")]
     ])
     await message.answer(
         f"💵 Сумма к пополнению: <b>{amount}₽</b>\n\n"
@@ -423,7 +423,7 @@ async def request_screenshot(call: types.CallbackQuery, state: FSMContext):
     await call.message.edit_text(
         "📤 Отправьте скриншот платежа:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main", icon_custom_emoji_id="5226566554568660249")]
         ])
     )
     await call.answer()
@@ -442,10 +442,10 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text=f"✅ Подтвердить {amount}₽", callback_data=f"topup_accept:{user_id}:{amount}"),
+                InlineKeyboardButton(text=f"✅ Подтвердить {amount}₽", callback_data=f"topup_accept:{user_id}:{amount}", icon_custom_emoji_id="5226566554568660249"),
             ],
             [
-                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"topup_reject:{user_id}"),
+                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"topup_reject:{user_id}", icon_custom_emoji_id="5226566554568660249"),
             ],
         ])
 
@@ -570,41 +570,41 @@ async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext
 @router.message(lambda msg: msg.text == "🛒 МАГАЗИН")
 async def shop(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC")],
-        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID")],
-        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS")],
+        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC",      icon_custom_emoji_id="5359085491895702823")],
+        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID", icon_custom_emoji_id="5368324170671202286")],
+        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS",     icon_custom_emoji_id="5373141891321699086")],
     ])
     await message.answer("📂 Выберите платформу:", reply_markup=keyboard)
 
 @router.message(lambda msg: msg.text == "💻 PC")
 async def pc_section(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC")],
-        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC")],
-        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC")],
-        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC",  icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC",  icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC",    icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
     ])
     await message.answer("💻 Выберите товар:", reply_markup=keyboard)
 
 @router.message(lambda msg: msg.text == "📱 ANDROID")
 async def android_section(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT")],
-        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS")],
-        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
     ])
     await message.answer("📱 Выберите товар:", reply_markup=keyboard)
 
 @router.message(lambda msg: msg.text == "🍎 IOS")
 async def ios_section(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS")],
-        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS")],
-        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS")],
-        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS")],
-        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform")],
+        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS",          icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS",     icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform",       icon_custom_emoji_id="5226566554568660249")],
     ])
     await message.answer("🍎 Выберите товар:", reply_markup=keyboard)
 
@@ -613,9 +613,9 @@ async def back_to_platform(call: types.CallbackQuery):
     await call.message.edit_text(
         "📂 Выберите платформу:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC")],
-            [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID")],
-            [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS")],
+            [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC",      icon_custom_emoji_id="5359085491895702823")],
+            [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID", icon_custom_emoji_id="5368324170671202286")],
+            [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS",     icon_custom_emoji_id="5373141891321699086")],
         ])
     )
     await call.answer()
@@ -623,11 +623,11 @@ async def back_to_platform(call: types.CallbackQuery):
 @router.callback_query(lambda call: call.data == "platform_PC")
 async def cb_pc(call: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC")],
-        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC")],
-        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC")],
-        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC",  icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC",  icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC",    icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
     ])
     await call.message.edit_text("💻 Выберите товар:", reply_markup=keyboard)
     await call.answer()
@@ -635,10 +635,10 @@ async def cb_pc(call: types.CallbackQuery):
 @router.callback_query(lambda call: call.data == "platform_ANDROID")
 async def cb_android(call: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT")],
-        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS")],
-        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform")],
+        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
     ])
     await call.message.edit_text("📱 Выберите товар:", reply_markup=keyboard)
     await call.answer()
@@ -646,11 +646,11 @@ async def cb_android(call: types.CallbackQuery):
 @router.callback_query(lambda call: call.data == "platform_IOS")
 async def cb_ios(call: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS")],
-        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS")],
-        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS")],
-        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS")],
-        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform")],
+        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS",   icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS",          icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS",     icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform",       icon_custom_emoji_id="5226566554568660249")],
     ])
     await call.message.edit_text("🍎 Выберите товар:", reply_markup=keyboard)
     await call.answer()
@@ -674,10 +674,10 @@ async def show_products_inline(call: types.CallbackQuery):
     for product in products:
         product_id, name, price, desc = product
         keyboard.inline_keyboard.append([
-            InlineKeyboardButton(text=f"{name} — {price}₽", callback_data=f"buy_{product_id}")
+            InlineKeyboardButton(text=f"{name} — {price}₽", callback_data=f"buy_{product_id}", icon_custom_emoji_id="5226566554568660249")
         ])
     keyboard.inline_keyboard.append([
-        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories")
+        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories", icon_custom_emoji_id="5226566554568660249")
     ])
 
     await call.message.edit_text(f"📦 {category}:", reply_markup=keyboard)
@@ -717,11 +717,12 @@ async def show_products(message: types.Message):
         keyboard.inline_keyboard.append([
             InlineKeyboardButton(
                 text=f"{name} - {price}₽",
-                callback_data=f"buy_{product_id}"
+                callback_data=f"buy_{product_id}",
+                icon_custom_emoji_id="5226566554568660249"
             )
         ])
     keyboard.inline_keyboard.append([
-        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories")
+        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories", icon_custom_emoji_id="5226566554568660249")
     ])
     
     await message.answer(
@@ -761,9 +762,9 @@ async def buy_product(call: types.CallbackQuery, state: FSMContext):
     rates_str = await get_rates(price)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Оплатить с баланса", callback_data=f"pay_balance:{product_id}")],
-        [InlineKeyboardButton(text="💳 Оплатить переводом", callback_data=f"pay_transfer:{product_id}:{days}")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories")],
+        [InlineKeyboardButton(text="💰 Оплатить с баланса", callback_data=f"pay_balance:{product_id}",      icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="💳 Оплатить переводом", callback_data=f"pay_transfer:{product_id}:{days}", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_categories",             icon_custom_emoji_id="5226566554568660249")],
     ])
 
     await call.message.edit_text(
@@ -795,8 +796,8 @@ async def pay_with_balance(call: types.CallbackQuery, state: FSMContext):
 
     if balance < price:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup")],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data=f"buy_{product_id}")],
+            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup",           icon_custom_emoji_id="5226566554568660249")],
+            [InlineKeyboardButton(text="◀️ Назад",            callback_data=f"buy_{product_id}", icon_custom_emoji_id="5226566554568660249")],
         ])
         await call.message.edit_text(
             f"❌ Недостаточно средств!\n"
@@ -830,8 +831,8 @@ async def pay_with_transfer(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(product_id=product_id, price=price, name=name, days=days)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📤 Загрузить скриншот", callback_data="upload_purchase_screenshot")],
-        [InlineKeyboardButton(text="◀️ Назад к оплате", callback_data=f"buy_{product_id}")],
+        [InlineKeyboardButton(text="📤 Загрузить скриншот", callback_data="upload_purchase_screenshot", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="◀️ Назад к оплате",    callback_data=f"buy_{product_id}",          icon_custom_emoji_id="5226566554568660249")],
     ])
 
     await call.message.edit_text(
@@ -853,7 +854,7 @@ async def request_purchase_screenshot(call: types.CallbackQuery):
     await call.message.edit_text(
         "📸 Отправьте скриншот оплаты одним фото:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main")]
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main", icon_custom_emoji_id="5226566554568660249")]
         ])
     )
     await call.answer()
@@ -873,8 +874,8 @@ async def process_purchase_screenshot(message: types.Message, state: FSMContext)
     photo_file_id = message.photo[-1].file_id
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"✅ Подтвердить и выдать товар", callback_data=f"purchase_accept:{user_id}:{product_id}")],
-        [InlineKeyboardButton(text="❌ Отклонить", callback_data=f"purchase_reject:{user_id}")],
+        [InlineKeyboardButton(text=f"✅ Подтвердить и выдать товар", callback_data=f"purchase_accept:{user_id}:{product_id}", icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="❌ Отклонить",                   callback_data=f"purchase_reject:{user_id}",              icon_custom_emoji_id="5226566554568660249")],
     ])
 
     try:
@@ -993,7 +994,7 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
     try:
         await call.bot.send_message(user_id, text, parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔑 Запросить ключ", callback_data=f"request_key:{user_id}:{product_id}")]
+                [InlineKeyboardButton(text="🔑 Запросить ключ", callback_data=f"request_key:{user_id}:{product_id}", icon_custom_emoji_id="5226566554568660249")]
             ])
         )
     except:
@@ -1044,9 +1045,9 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC")],
-        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID")],
-        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS")],
+        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC",      icon_custom_emoji_id="5359085491895702823")],
+        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID", icon_custom_emoji_id="5368324170671202286")],
+        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS",     icon_custom_emoji_id="5373141891321699086")],
     ])
     await call.message.edit_text("📂 Выберите платформу:", reply_markup=keyboard)
     await call.answer()
@@ -1057,8 +1058,8 @@ async def topup_balance_callback(call: types.CallbackQuery):
         f"{PAYMENT_DETAILS}\n\n"
         f"💰 Текущий баланс: {db.get_user_balance(call.from_user.id)}₽",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+            [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot", icon_custom_emoji_id="5226566554568660249")],
+            [InlineKeyboardButton(text="🔙 Назад",              callback_data="back_to_main",    icon_custom_emoji_id="5226566554568660249")]
         ])
     )
     await call.answer()
@@ -1096,7 +1097,7 @@ async def profile(message: types.Message):
         text += "🔑 У вас нет активных ключей"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup")]
+        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup", icon_custom_emoji_id="5226566554568660249")]
     ])
     
     await message.answer(text, reply_markup=keyboard)
