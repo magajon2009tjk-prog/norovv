@@ -587,90 +587,117 @@ async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext
 # ---------- МАГАЗИН ----------
 @router.message(lambda msg: msg.text == "🛒 МАГАЗИН")
 async def shop(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC",      icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS",     icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await message.answer("📂 Выберите платформу:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": message.chat.id,
+        "text": "📂 Выберите платформу:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "💻 PC",      "callback_data": "platform_PC",      "icon_custom_emoji_id": E}],
+            [{"text": "📱 ANDROID", "callback_data": "platform_ANDROID", "icon_custom_emoji_id": E}],
+            [{"text": "🍎 IOS",     "callback_data": "platform_IOS",     "icon_custom_emoji_id": E}],
+        ]}
+    })
 
 @router.message(lambda msg: msg.text == "💻 PC")
 async def pc_section(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC",  icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC",  icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC",    icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await message.answer("💻 Выберите товар:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": message.chat.id,
+        "text": "💻 Выберите товар:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "🎯 AIM BOT PC",  "callback_data": "cat_AIM BOT PC",  "icon_custom_emoji_id": E}],
+            [{"text": "🔒 PRIVATE PC",  "callback_data": "cat_PRIVATE PC",  "icon_custom_emoji_id": E}],
+            [{"text": "⚙️ BASIC PC",    "callback_data": "cat_BASIC PC",    "icon_custom_emoji_id": E}],
+            [{"text": "💥 BR MOD PC",   "callback_data": "cat_BR MOD PC",   "icon_custom_emoji_id": E}],
+            [{"text": "◀️ Назад",       "callback_data": "back_to_platform","icon_custom_emoji_id": E}],
+        ]}
+    })
 
 @router.message(lambda msg: msg.text == "📱 ANDROID")
 async def android_section(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await message.answer("📱 Выберите товар:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": message.chat.id,
+        "text": "📱 Выберите товар:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "💧 DRIP CLIENT", "callback_data": "cat_DRIP CLIENT", "icon_custom_emoji_id": E}],
+            [{"text": "🎮 HG CHEATS",   "callback_data": "cat_HG CHEATS",   "icon_custom_emoji_id": E}],
+            [{"text": "⭐ PRIME MOD",   "callback_data": "cat_PRIME MOD",   "icon_custom_emoji_id": E}],
+            [{"text": "◀️ Назад",       "callback_data": "back_to_platform","icon_custom_emoji_id": E}],
+        ]}
+    })
 
 @router.message(lambda msg: msg.text == "🍎 IOS")
 async def ios_section(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS",          icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS",     icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform",       icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await message.answer("🍎 Выберите товар:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": message.chat.id,
+        "text": "🍎 Выберите товар:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "🍏 FLOURITE PANEL IOS", "callback_data": "cat_FLOURITE PANEL IOS", "icon_custom_emoji_id": E}],
+            [{"text": "🍎 MIGULE PANEL IOS",   "callback_data": "cat_MIGULE PANEL IOS",   "icon_custom_emoji_id": E}],
+            [{"text": "🔗 PROXY IOS",          "callback_data": "cat_PROXY IOS",          "icon_custom_emoji_id": E}],
+            [{"text": "📜 СЕРТИФИКАТ IOS",     "callback_data": "cat_СЕРТИФИКАТ IOS",     "icon_custom_emoji_id": E}],
+            [{"text": "◀️ Назад",              "callback_data": "back_to_platform",       "icon_custom_emoji_id": E}],
+        ]}
+    })
 
 @router.callback_query(lambda call: call.data == "back_to_platform")
 async def back_to_platform(call: types.CallbackQuery):
-    await call.message.edit_text(
-        "📂 Выберите платформу:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC",      icon_custom_emoji_id="5226566554568660249")],
-            [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID", icon_custom_emoji_id="5226566554568660249")],
-            [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS",     icon_custom_emoji_id="5226566554568660249")],
-        ])
-    )
+    await tg_api(BOT_TOKEN, "editMessageText", {
+        "chat_id": call.message.chat.id,
+        "message_id": call.message.message_id,
+        "text": "📂 Выберите платформу:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "💻 PC",      "callback_data": "platform_PC",      "icon_custom_emoji_id": E}],
+            [{"text": "📱 ANDROID", "callback_data": "platform_ANDROID", "icon_custom_emoji_id": E}],
+            [{"text": "🍎 IOS",     "callback_data": "platform_IOS",     "icon_custom_emoji_id": E}],
+        ]}
+    })
     await call.answer()
 
 @router.callback_query(lambda call: call.data == "platform_PC")
 async def cb_pc(call: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎯 AIM BOT PC",  callback_data="cat_AIM BOT PC",  icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🔒 PRIVATE PC",  callback_data="cat_PRIVATE PC",  icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="⚙️ BASIC PC",    callback_data="cat_BASIC PC",    icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="💥 BR MOD PC",   callback_data="cat_BR MOD PC",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await call.message.edit_text("💻 Выберите товар:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "editMessageText", {
+        "chat_id": call.message.chat.id,
+        "message_id": call.message.message_id,
+        "text": "💻 Выберите товар:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "🎯 AIM BOT PC",  "callback_data": "cat_AIM BOT PC",  "icon_custom_emoji_id": E}],
+            [{"text": "🔒 PRIVATE PC",  "callback_data": "cat_PRIVATE PC",  "icon_custom_emoji_id": E}],
+            [{"text": "⚙️ BASIC PC",    "callback_data": "cat_BASIC PC",    "icon_custom_emoji_id": E}],
+            [{"text": "💥 BR MOD PC",   "callback_data": "cat_BR MOD PC",   "icon_custom_emoji_id": E}],
+            [{"text": "◀️ Назад",       "callback_data": "back_to_platform","icon_custom_emoji_id": E}],
+        ]}
+    })
     await call.answer()
 
 @router.callback_query(lambda call: call.data == "platform_ANDROID")
 async def cb_android(call: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💧 DRIP CLIENT", callback_data="cat_DRIP CLIENT", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🎮 HG CHEATS",   callback_data="cat_HG CHEATS",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="⭐ PRIME MOD",   callback_data="cat_PRIME MOD",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",       callback_data="back_to_platform",icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await call.message.edit_text("📱 Выберите товар:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "editMessageText", {
+        "chat_id": call.message.chat.id,
+        "message_id": call.message.message_id,
+        "text": "📱 Выберите товар:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "💧 DRIP CLIENT", "callback_data": "cat_DRIP CLIENT", "icon_custom_emoji_id": E}],
+            [{"text": "🎮 HG CHEATS",   "callback_data": "cat_HG CHEATS",   "icon_custom_emoji_id": E}],
+            [{"text": "⭐ PRIME MOD",   "callback_data": "cat_PRIME MOD",   "icon_custom_emoji_id": E}],
+            [{"text": "◀️ Назад",       "callback_data": "back_to_platform","icon_custom_emoji_id": E}],
+        ]}
+    })
     await call.answer()
 
 @router.callback_query(lambda call: call.data == "platform_IOS")
 async def cb_ios(call: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🍏 FLOURITE PANEL IOS", callback_data="cat_FLOURITE PANEL IOS", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🍎 MIGULE PANEL IOS",   callback_data="cat_MIGULE PANEL IOS",   icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🔗 PROXY IOS",          callback_data="cat_PROXY IOS",          icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="📜 СЕРТИФИКАТ IOS",     callback_data="cat_СЕРТИФИКАТ IOS",     icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_platform",       icon_custom_emoji_id="5226566554568660249")],
-    ])
-    await call.message.edit_text("🍎 Выберите товар:", reply_markup=keyboard)
+    await tg_api(BOT_TOKEN, "editMessageText", {
+        "chat_id": call.message.chat.id,
+        "message_id": call.message.message_id,
+        "text": "🍎 Выберите товар:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "🍏 FLOURITE PANEL IOS", "callback_data": "cat_FLOURITE PANEL IOS", "icon_custom_emoji_id": E}],
+            [{"text": "🍎 MIGULE PANEL IOS",   "callback_data": "cat_MIGULE PANEL IOS",   "icon_custom_emoji_id": E}],
+            [{"text": "🔗 PROXY IOS",          "callback_data": "cat_PROXY IOS",          "icon_custom_emoji_id": E}],
+            [{"text": "📜 СЕРТИФИКАТ IOS",     "callback_data": "cat_СЕРТИФИКАТ IOS",     "icon_custom_emoji_id": E}],
+            [{"text": "◀️ Назад",              "callback_data": "back_to_platform",       "icon_custom_emoji_id": E}],
+        ]}
+    })
+    await call.answer()
     await call.answer()
 
 @router.callback_query(lambda call: call.data.startswith("cat_"))
@@ -1062,11 +1089,16 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
 
 @router.callback_query(lambda call: call.data == "back_to_categories")
 async def back_to_categories(call: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💻 PC",      callback_data="platform_PC",      icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="📱 ANDROID", callback_data="platform_ANDROID", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🍎 IOS",     callback_data="platform_IOS",     icon_custom_emoji_id="5226566554568660249")],
-    ])
+    await tg_api(BOT_TOKEN, "editMessageText", {
+        "chat_id": call.message.chat.id,
+        "message_id": call.message.message_id,
+        "text": "📂 Выберите платформу:",
+        "reply_markup": {"inline_keyboard": [
+            [{"text": "💻 PC",      "callback_data": "platform_PC",      "icon_custom_emoji_id": E}],
+            [{"text": "📱 ANDROID", "callback_data": "platform_ANDROID", "icon_custom_emoji_id": E}],
+            [{"text": "🍎 IOS",     "callback_data": "platform_IOS",     "icon_custom_emoji_id": E}],
+        ]}
+    })
     await call.message.edit_text("📂 Выберите платформу:", reply_markup=keyboard)
     await call.answer()
 
