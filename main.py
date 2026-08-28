@@ -14,6 +14,16 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
+# ==================== RAW TELEGRAM API ====================
+async def tg_api(bot_token: str, method: str, payload: dict):
+    url = f"https://api.telegram.org/bot{bot_token}/{method}"
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as resp:
+            return await resp.json()
+
+# ==================== EMOJI IDs ====================
+E = "5226566554568660249"   # основной — огонь/стрелка
+
 # ==================== КОНФИГУРАЦИЯ ====================
 load_dotenv()
 
@@ -27,6 +37,14 @@ ADMIN_IDS = [int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdi
 
 # ID группового чата для логов
 LOG_CHAT_ID = int(os.getenv("LOG_CHAT_ID", "-5487311704"))
+
+async def send_menu(chat_id: int, text: str):
+    """Отправляет сообщение с главной клавиатурой через raw API (поддерживает премиум emoji на кнопках)."""
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": chat_id,
+        "text": text,
+        "reply_markup": main_keyboard()
+    })
 
 # ==================== КУРСЫ ВАЛЮТ ====================
 async def get_rates(rub_amount: int) -> str:
@@ -291,15 +309,18 @@ db = Database()
 
 # ==================== КЛАВИАТУРЫ ====================
 def main_keyboard():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🛒 МАГАЗИН")],
-            [KeyboardButton(text="👤 ПРОФИЛЬ"), KeyboardButton(text="🔧 ТЕХ.ПОДДЕРЖКА")],
-            [KeyboardButton(text="⭐ ОТЗЫВЫ"), KeyboardButton(text="🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ")],
-            [KeyboardButton(text="💰 ПОПОЛНИТЬ БАЛАНС")]
+    """Raw JSON клавиатура с премиум emoji иконками"""
+    return {
+        "keyboard": [
+            [{"text": "🛒 МАГАЗИН",           "icon_custom_emoji_id": E}],
+            [{"text": "👤 ПРОФИЛЬ",            "icon_custom_emoji_id": E},
+             {"text": "🔧 ТЕХ.ПОДДЕРЖКА",     "icon_custom_emoji_id": E}],
+            [{"text": "⭐ ОТЗЫВЫ",             "icon_custom_emoji_id": E},
+             {"text": "🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ","icon_custom_emoji_id": E}],
+            [{"text": "💰 ПОПОЛНИТЬ БАЛАНС",   "icon_custom_emoji_id": E}]
         ],
-        resize_keyboard=True
-    )
+        "resize_keyboard": True
+    }
 
 def category_keyboard():
     return ReplyKeyboardMarkup(
@@ -379,21 +400,21 @@ async def start(message: types.Message):
     # Добавляем пользователя в БД
     db.add_user(user_id, username)
     
-    await message.answer(
+    await send_menu(
+        message.chat.id,
         f"👋 Добро пожаловать, {username}!\n\n"
         "🏪 Это магазин по продаже доступов к панелям.\n"
-        "Выберите категорию или воспользуйтесь кнопками ниже.",
-        reply_markup=main_keyboard()
+        "Выберите категорию или воспользуйтесь кнопками ниже."
     )
 
 # ---------- ПОПОЛНЕНИЕ БАЛАНСА ----------
 @router.message(lambda msg: msg.text == "💰 ПОПОЛНИТЬ БАЛАНС")
 async def show_payment_details(message: types.Message, state: FSMContext):
     await state.set_state(TopUp.waiting_for_amount)
-    await message.answer(
+    await send_menu(
+        message.chat.id,
         f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
-        f"Введите сумму которую желаете пополнить:",
-        reply_markup=main_keyboard()
+        f"Введите сумму которую желаете пополнить:"
     )
 
 @router.message(TopUp.waiting_for_amount)
@@ -464,18 +485,15 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         except Exception as e:
             print(f"Ошибка отправки в лог-чат: {e}")
 
-        await message.answer(
+        await send_menu(
+            message.chat.id,
             "✅ Ваш скриншот отправлен на проверку!\n"
             "⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
-            "Если у вас возникли вопросы, обратитесь в техподдержку: @NorovK1ng",
-            reply_markup=main_keyboard()
+            "Если у вас возникли вопросы, обратитесь в техподдержку: @NorovK1ng"
         )
         await state.clear()
     else:
-        await message.answer(
-            "❌ Пожалуйста, отправьте фото скриншота платежа.",
-            reply_markup=main_keyboard()
-        )
+        await send_menu(message.chat.id, "❌ Пожалуйста, отправьте фото скриншота платежа.")
 
 # ---------- ПРИНЯТЬ ПОПОЛНЕНИЕ ----------
 @router.callback_query(lambda call: call.data.startswith("topup_accept:"))
@@ -559,11 +577,11 @@ async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext
         await call.message.delete()
     except:
         pass
-    await call.bot.send_message(
-        call.from_user.id,
-        "🏠 Главное меню",
-        reply_markup=main_keyboard()
-    )
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": call.from_user.id,
+        "text": "🏠 Главное меню",
+        "reply_markup": main_keyboard()
+    })
     await call.answer()
 
 # ---------- МАГАЗИН ----------
@@ -893,11 +911,11 @@ async def process_purchase_screenshot(message: types.Message, state: FSMContext)
     except Exception as e:
         print(f"Ошибка отправки в лог-чат: {e}")
 
-    await message.answer(
+    await send_menu(
+        message.chat.id,
         "✅ Скриншот отправлен на проверку!\n"
         "⏰ После подтверждения товар будет выдан автоматически.\n\n"
-        "По вопросам: @NorovK1ng",
-        reply_markup=main_keyboard()
+        "По вопросам: @NorovK1ng"
     )
     await state.clear()
 
@@ -1066,10 +1084,7 @@ async def topup_balance_callback(call: types.CallbackQuery):
 
 @router.message(lambda msg: msg.text == "◀️ НАЗАД")
 async def back_to_main(message: types.Message):
-    await message.answer(
-        "🏠 Главное меню",
-        reply_markup=main_keyboard()
-    )
+    await send_menu(message.chat.id, "🏠 Главное меню")
 # ---------- ПРОФИЛЬ ----------
 @router.message(lambda msg: msg.text == "👤 ПРОФИЛЬ")
 async def profile(message: types.Message):
@@ -1106,10 +1121,7 @@ async def profile(message: types.Message):
 @router.message(lambda msg: msg.text == "🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ")
 async def check_key_button(message: types.Message, state: FSMContext):
     await state.set_state(KeyCheck.waiting_for_password)
-    await message.answer(
-        "🔑 Введите ваш ключ:",
-        reply_markup=main_keyboard()
-    )
+    await send_menu(message.chat.id, "🔑 Введите ваш ключ:")
 
 @router.message(KeyCheck.waiting_for_password)
 async def process_key_check(message: types.Message, state: FSMContext):
@@ -1124,25 +1136,25 @@ async def process_key_check(message: types.Message, state: FSMContext):
         
         # Проверяем, принадлежит ли ключ пользователю
         if key_user_id == user_id:
-            await message.answer(
+            await send_menu(
+                message.chat.id,
                 f"✅ Ключ найден!\n\n"
                 f"🔑 Ключ: {key}\n"
                 f"👤 Владелец: @{message.from_user.username or 'Не указан'}\n"
                 f"📅 Действует до: {expiry_date}\n"
-                f"📊 Статус: {status}",
-                reply_markup=main_keyboard()
+                f"📊 Статус: {status}"
             )
         else:
-            await message.answer(
+            await send_menu(
+                message.chat.id,
                 "❌ Этот ключ не принадлежит вам!\n"
-                "Пожалуйста, введите свой пароль.",
-                reply_markup=main_keyboard()
+                "Пожалуйста, введите свой пароль."
             )
     else:
-        await message.answer(
+        await send_menu(
+            message.chat.id,
             "❌ У вас нету ключа или он не добавлен в базу данных.\n"
-            "Пожалуйста, приобретите ключ в магазине.",
-            reply_markup=main_keyboard()
+            "Пожалуйста, приобретите ключ в магазине."
         )
     
     await state.clear()
@@ -1150,22 +1162,18 @@ async def process_key_check(message: types.Message, state: FSMContext):
 # ---------- ТЕХ.ПОДДЕРЖКА ----------
 @router.message(lambda msg: msg.text == "🔧 ТЕХ.ПОДДЕРЖКА")
 async def support(message: types.Message):
-    await message.answer(
+    await send_menu(
+        message.chat.id,
         "🔧 Техническая поддержка\n\n"
         "По всем вопросам обращайтесь:\n"
         "📱 Telegram: @NorovK1ng\n\n"
-        "💰 Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'",
-        reply_markup=main_keyboard()
+        "💰 Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'"
     )
 
 # ---------- ОТЗЫВЫ ----------
 @router.message(lambda msg: msg.text == "⭐ ОТЗЫВЫ")
 async def reviews(message: types.Message):
-    await message.answer(
-        "⭐ Отзывы\n\n"
-        "😔 Пока что нету отзывов.",
-        reply_markup=main_keyboard()
-    )
+    await send_menu(message.chat.id, "⭐ Отзывы\n\n😔 Пока что нету отзывов.")
 
 # ---------- АДМИН-КОМАНДЫ ----------
 @router.message(Command("add_balance"))
