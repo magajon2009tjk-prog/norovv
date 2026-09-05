@@ -22,7 +22,23 @@ async def tg_api(bot_token: str, method: str, payload: dict):
             return await resp.json()
 
 # ==================== EMOJI IDs ====================
-E = "5226566554568660249"   # основной — огонь/стрелка
+E = "5226566554568660249"   # основной для кнопок
+
+# tg-emoji для текста сообщений
+def tge(emoji_id: str, fallback: str) -> str:
+    return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
+
+STAR   = tge("5226549039692027142", "⭐")
+FIRE   = tge("5226566554568660249", "🔥")
+SHOP   = tge("5226818720688544489", "🛒")
+PROF   = tge("5226616973189746219", "👤")
+KEY    = tge("6032644646587338669", "🔑")
+MONEY  = tge("5879814368572478751", "💰")
+CHECK  = tge("5870633910337015697", "✅")
+CROSS  = tge("5870657884844462243", "❌")
+GEAR   = tge("5870982283724328568", "⚙️")
+PHONE  = tge("5226727293719712131", "🔧")
+LOCK   = tge("5226566554568660249", "🔒")
 
 # ==================== КОНФИГУРАЦИЯ ====================
 load_dotenv()
@@ -43,6 +59,7 @@ async def send_menu(chat_id: int, text: str):
     await tg_api(BOT_TOKEN, "sendMessage", {
         "chat_id": chat_id,
         "text": text,
+        "parse_mode": "HTML",
         "reply_markup": main_keyboard()
     })
 
@@ -402,9 +419,9 @@ async def start(message: types.Message):
     
     await send_menu(
         message.chat.id,
-        f"👋 Добро пожаловать, {username}!\n\n"
-        "🏪 Это магазин по продаже доступов к панелям.\n"
-        "Выберите категорию или воспользуйтесь кнопками ниже."
+        f"{STAR} <b>Добро пожаловать, {username}!</b>\n\n"
+        f"{SHOP} Магазин доступов к панелям.\n"
+        f"Выберите категорию или воспользуйтесь кнопками ниже."
     )
 
 # ---------- ПОПОЛНЕНИЕ БАЛАНСА ----------
@@ -413,7 +430,7 @@ async def show_payment_details(message: types.Message, state: FSMContext):
     await state.set_state(TopUp.waiting_for_amount)
     await send_menu(
         message.chat.id,
-        f"💰 Текущий баланс: {db.get_user_balance(message.from_user.id)}₽\n\n"
+        f"{MONEY} Текущий баланс: <b>{db.get_user_balance(message.from_user.id)}₽</b>\n\n"
         f"Введите сумму которую желаете пополнить:"
     )
 
@@ -487,13 +504,13 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 
         await send_menu(
             message.chat.id,
-            "✅ Ваш скриншот отправлен на проверку!\n"
-            "⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
-            "Если у вас возникли вопросы, обратитесь в техподдержку: @NorovK1ng"
+            f"{CHECK} Ваш скриншот отправлен на проверку!\n"
+            f"⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
+            f"Если у вас возникли вопросы, обратитесь в техподдержку: @NorovK1ng"
         )
         await state.clear()
     else:
-        await send_menu(message.chat.id, "❌ Пожалуйста, отправьте фото скриншота платежа.")
+        await send_menu(message.chat.id, f"{CROSS} Пожалуйста, отправьте фото скриншота платежа.")
 
 # ---------- ПРИНЯТЬ ПОПОЛНЕНИЕ ----------
 @router.callback_query(lambda call: call.data.startswith("topup_accept:"))
@@ -940,9 +957,9 @@ async def process_purchase_screenshot(message: types.Message, state: FSMContext)
 
     await send_menu(
         message.chat.id,
-        "✅ Скриншот отправлен на проверку!\n"
-        "⏰ После подтверждения товар будет выдан автоматически.\n\n"
-        "По вопросам: @NorovK1ng"
+        f"{CHECK} Скриншот отправлен на проверку!\n"
+        f"⏰ После подтверждения товар будет выдан автоматически.\n\n"
+        f"По вопросам: @NorovK1ng"
     )
     await state.clear()
 
@@ -1153,7 +1170,7 @@ async def profile(message: types.Message):
 @router.message(lambda msg: msg.text == "🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ")
 async def check_key_button(message: types.Message, state: FSMContext):
     await state.set_state(KeyCheck.waiting_for_password)
-    await send_menu(message.chat.id, "🔑 Введите ваш ключ:")
+    await send_menu(message.chat.id, f"{KEY} Введите ваш ключ:")
 
 @router.message(KeyCheck.waiting_for_password)
 async def process_key_check(message: types.Message, state: FSMContext):
@@ -1170,23 +1187,23 @@ async def process_key_check(message: types.Message, state: FSMContext):
         if key_user_id == user_id:
             await send_menu(
                 message.chat.id,
-                f"✅ Ключ найден!\n\n"
-                f"🔑 Ключ: {key}\n"
-                f"👤 Владелец: @{message.from_user.username or 'Не указан'}\n"
+                f"{CHECK} <b>Ключ найден!</b>\n\n"
+                f"{KEY} Ключ: <code>{key}</code>\n"
+                f"{PROF} Владелец: @{message.from_user.username or 'Не указан'}\n"
                 f"📅 Действует до: {expiry_date}\n"
                 f"📊 Статус: {status}"
             )
         else:
             await send_menu(
                 message.chat.id,
-                "❌ Этот ключ не принадлежит вам!\n"
-                "Пожалуйста, введите свой пароль."
+                f"{CROSS} Этот ключ не принадлежит вам!\n"
+                f"Пожалуйста, введите свой пароль."
             )
     else:
         await send_menu(
             message.chat.id,
-            "❌ У вас нету ключа или он не добавлен в базу данных.\n"
-            "Пожалуйста, приобретите ключ в магазине."
+            f"{CROSS} У вас нету ключа или он не добавлен в базу данных.\n"
+            f"Пожалуйста, приобретите ключ в магазине."
         )
     
     await state.clear()
@@ -1196,16 +1213,16 @@ async def process_key_check(message: types.Message, state: FSMContext):
 async def support(message: types.Message):
     await send_menu(
         message.chat.id,
-        "🔧 Техническая поддержка\n\n"
-        "По всем вопросам обращайтесь:\n"
-        "📱 Telegram: @NorovK1ng\n\n"
-        "💰 Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'"
+        f"{PHONE} <b>Техническая поддержка</b>\n\n"
+        f"По всем вопросам обращайтесь:\n"
+        f"📱 Telegram: @NorovK1ng\n\n"
+        f"{MONEY} Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'"
     )
 
 # ---------- ОТЗЫВЫ ----------
 @router.message(lambda msg: msg.text == "⭐ ОТЗЫВЫ")
 async def reviews(message: types.Message):
-    await send_menu(message.chat.id, "⭐ Отзывы\n\n😔 Пока что нету отзывов.")
+    await send_menu(message.chat.id, f"{STAR} <b>Отзывы</b>\n\n😔 Пока что нету отзывов.")
 
 # ---------- АДМИН-КОМАНДЫ ----------
 @router.message(Command("add_balance"))
