@@ -1357,6 +1357,24 @@ async def admin_add_key(message: types.Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка: {str(e)}")
 
+@router.message(Command("test"))
+async def test_emoji(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    await tg_api(BOT_TOKEN, "sendMessage", {
+        "chat_id": message.chat.id,
+        "parse_mode": "HTML",
+        "text": (
+            '<b>Тест премиум emoji:</b>\n\n'
+            '<tg-emoji emoji-id="5870633910337015697">✅</tg-emoji> Галочка\n'
+            '<tg-emoji emoji-id="5870921681735781843">⭐</tg-emoji> Звезда\n'
+            '<tg-emoji emoji-id="5879814368572478751">💰</tg-emoji> Деньги\n'
+            '<tg-emoji emoji-id="6032644646587338669">🔑</tg-emoji> Ключ\n\n'
+            'Если видишь анимированные — Premium работает!\n'
+            'Если обычные — нужен Premium у бота.'
+        )
+    })
+
 @router.message(Command("stats"))
 async def admin_stats(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
