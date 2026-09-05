@@ -22,23 +22,50 @@ async def tg_api(bot_token: str, method: str, payload: dict):
             return await resp.json()
 
 # ==================== EMOJI IDs ====================
-E = "5226566554568660249"   # основной для кнопок
+# icon_custom_emoji_id для кнопок (без текстового emoji!)
+E_SHOP    = "5226818720688544489"  # 🛒 Магазин
+E_PROF    = "5870994129244131212"  # 👤 Профиль
+E_SUPPORT = "5870982283724328568"  # 🔧 Поддержка
+E_STAR    = "5870921681735781843"  # ⭐ Отзывы
+E_KEY     = "6032644646587338669"  # 🔑 Ключ
+E_MONEY   = "5879814368572478751"  # 💰 Деньги
+E_CHECK   = "5870633910337015697"  # ✅ Галочка
+E_CROSS   = "5870657884844462243"  # ❌ Крестик
+E_BACK    = "5893057118545646106"  # ◁ Назад
+E_PC      = "5870982283724328568"  # ⚙️ PC
+E_ANDROID = "5870772616305839506"  # 📱 Android
+E_IOS     = "6037249452824072506"  # 🔒 iOS
+E_PAY     = "5904462880941545555"  # 🪙 Оплата
+E_UPLOAD  = "5963103826075456248"  # ⬆ Загрузить/Отправить
+E_CANCEL  = "5870657884844462243"  # ❌ Отмена
+E_GIFT    = "6032644646587338669"  # 🎁 Ключ/Подарок
+E_BOX     = "5884479287171485878"  # 📦 Товар
+E_LOCK    = "6037249452824072506"  # 🔒 Замок
+E_GEAR    = "5870982283724328568"  # ⚙️ Настройки
+E_INFO    = "6028435952299413210"  # ℹ️ Инфо
+E_RELOAD  = "5345906554510012647"  # 🔄 Загрузка
 
-# tg-emoji для текста сообщений
+# tg-emoji для текстов сообщений (с parse_mode HTML)
 def tge(emoji_id: str, fallback: str) -> str:
     return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
 
-STAR   = tge("5226549039692027142", "⭐")
-FIRE   = tge("5226566554568660249", "🔥")
-SHOP   = tge("5226818720688544489", "🛒")
-PROF   = tge("5226616973189746219", "👤")
-KEY    = tge("6032644646587338669", "🔑")
-MONEY  = tge("5879814368572478751", "💰")
-CHECK  = tge("5870633910337015697", "✅")
-CROSS  = tge("5870657884844462243", "❌")
-GEAR   = tge("5870982283724328568", "⚙️")
-PHONE  = tge("5226727293719712131", "🔧")
-LOCK   = tge("5226566554568660249", "🔒")
+ICO_STAR    = tge("5870921681735781843", "⭐")
+ICO_SHOP    = tge("5226818720688544489", "🛒")
+ICO_PROF    = tge("5870994129244131212", "👤")
+ICO_KEY     = tge("6032644646587338669", "🔑")
+ICO_MONEY   = tge("5879814368572478751", "💰")
+ICO_CHECK   = tge("5870633910337015697", "✅")
+ICO_CROSS   = tge("5870657884844462243", "❌")
+ICO_GEAR    = tge("5870982283724328568", "⚙️")
+ICO_SUPPORT = tge("5870982283724328568", "🔧")
+ICO_BOX     = tge("5884479287171485878", "📦")
+ICO_PAY     = tge("5904462880941545555", "🪙")
+ICO_INFO    = tge("6028435952299413210", "ℹ️")
+ICO_RELOAD  = tge("5345906554510012647", "🔄")
+ICO_GIFT    = tge("6032644646587338669", "🎁")
+ICO_LOCK    = tge("6037249452824072506", "🔒")
+ICO_CARD    = tge("5879814368572478751", "🏧")
+
 
 # ==================== КОНФИГУРАЦИЯ ====================
 load_dotenv()
@@ -329,12 +356,12 @@ def main_keyboard():
     """Raw JSON клавиатура с премиум emoji иконками"""
     return {
         "keyboard": [
-            [{"text": "🛒 МАГАЗИН",           "icon_custom_emoji_id": E}],
-            [{"text": "👤 ПРОФИЛЬ",            "icon_custom_emoji_id": E},
-             {"text": "🔧 ТЕХ.ПОДДЕРЖКА",     "icon_custom_emoji_id": E}],
-            [{"text": "⭐ ОТЗЫВЫ",             "icon_custom_emoji_id": E},
-             {"text": "🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ","icon_custom_emoji_id": E}],
-            [{"text": "💰 ПОПОЛНИТЬ БАЛАНС",   "icon_custom_emoji_id": E}]
+            [{"text": "МАГАЗИН",            "icon_custom_emoji_id": E_SHOP}],
+            [{"text": "ПРОФИЛЬ",            "icon_custom_emoji_id": E_PROF},
+             {"text": "ТЕХ.ПОДДЕРЖКА",     "icon_custom_emoji_id": E_SUPPORT}],
+            [{"text": "ОТЗЫВЫ",             "icon_custom_emoji_id": E_STAR},
+             {"text": "ПРОВЕРИТЬ МОЙ КЛЮЧ","icon_custom_emoji_id": E_KEY}],
+            [{"text": "ПОПОЛНИТЬ БАЛАНС",   "icon_custom_emoji_id": E_MONEY}]
         ],
         "resize_keyboard": True
     }
@@ -419,18 +446,18 @@ async def start(message: types.Message):
     
     await send_menu(
         message.chat.id,
-        f"{STAR} <b>Добро пожаловать, {username}!</b>\n\n"
-        f"{SHOP} Магазин доступов к панелям.\n"
+        f"{ICO_STAR} <b>Добро пожаловать, {username}!</b>\n\n"
+        f"{ICO_SHOP} Магазин доступов к панелям.\n"
         f"Выберите категорию или воспользуйтесь кнопками ниже."
     )
 
 # ---------- ПОПОЛНЕНИЕ БАЛАНСА ----------
-@router.message(lambda msg: msg.text == "💰 ПОПОЛНИТЬ БАЛАНС")
+@router.message(lambda msg: msg.text == "ПОПОЛНИТЬ БАЛАНС")
 async def show_payment_details(message: types.Message, state: FSMContext):
     await state.set_state(TopUp.waiting_for_amount)
     await send_menu(
         message.chat.id,
-        f"{MONEY} Текущий баланс: <b>{db.get_user_balance(message.from_user.id)}₽</b>\n\n"
+        f"{ICO_MONEY} Текущий баланс: <b>{db.get_user_balance(message.from_user.id)}₽</b>\n\n"
         f"Введите сумму которую желаете пополнить:"
     )
 
@@ -445,11 +472,11 @@ async def process_amount(message: types.Message, state: FSMContext):
     await state.set_state(TopUp.waiting_for_screenshot)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot_noop", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="🔙 Отмена",             callback_data="back_to_main",          icon_custom_emoji_id="5226566554568660249")]
+        [InlineKeyboardButton(text="Отправить скриншот", callback_data="send_screenshot_noop", icon_custom_emoji_id=E_UPLOAD)],
+        [InlineKeyboardButton(text="Отмена",             callback_data="back_to_main",          icon_custom_emoji_id=E_CANCEL)]
     ])
     await message.answer(
-        f"💵 Сумма к пополнению: <b>{amount}₽</b>\n\n"
+        f"{ICO_PAY} Сумма к пополнению: <b>{amount}₽</b>\n\n"
         f"{PAYMENT_DETAILS}\n"
         f"После оплаты нажмите кнопку ниже и отправьте скриншот.",
         reply_markup=keyboard,
@@ -459,10 +486,11 @@ async def process_amount(message: types.Message, state: FSMContext):
 @router.callback_query(lambda call: call.data == "send_screenshot_noop")
 async def request_screenshot(call: types.CallbackQuery, state: FSMContext):
     await call.message.edit_text(
-        "📤 Отправьте скриншот платежа:",
+        f"{ICO_RELOAD} Отправьте скриншот платежа:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main", icon_custom_emoji_id="5226566554568660249")]
-        ])
+            [InlineKeyboardButton(text="Отмена", callback_data="back_to_main", icon_custom_emoji_id=E_CANCEL)]
+        ]),
+        parse_mode="HTML"
     )
     await call.answer()
 
@@ -480,10 +508,10 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text=f"✅ Подтвердить {amount}₽", callback_data=f"topup_accept:{user_id}:{amount}", icon_custom_emoji_id="5226566554568660249"),
+                InlineKeyboardButton(text=f"Подтвердить {amount}₽", callback_data=f"topup_accept:{user_id}:{amount}", icon_custom_emoji_id=E_CHECK),
             ],
             [
-                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"topup_reject:{user_id}", icon_custom_emoji_id="5226566554568660249"),
+                InlineKeyboardButton(text="Отклонить", callback_data=f"topup_reject:{user_id}", icon_custom_emoji_id=E_CROSS),
             ],
         ])
 
@@ -504,13 +532,13 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 
         await send_menu(
             message.chat.id,
-            f"{CHECK} Ваш скриншот отправлен на проверку!\n"
+            f"{ICO_CHECK} Ваш скриншот отправлен на проверку!\n"
             f"⏰ Ожидайте пополнения баланса в течение 5-10 минут.\n\n"
             f"Если у вас возникли вопросы, обратитесь в техподдержку: @NorovK1ng"
         )
         await state.clear()
     else:
-        await send_menu(message.chat.id, f"{CROSS} Пожалуйста, отправьте фото скриншота платежа.")
+        await send_menu(message.chat.id, f"{ICO_CROSS} Пожалуйста, отправьте фото скриншота платежа.")
 
 # ---------- ПРИНЯТЬ ПОПОЛНЕНИЕ ----------
 @router.callback_query(lambda call: call.data.startswith("topup_accept:"))
@@ -602,9 +630,8 @@ async def back_to_main_from_payment(call: types.CallbackQuery, state: FSMContext
     await call.answer()
 
 # ---------- МАГАЗИН ----------
-@router.message(lambda msg: msg.text == "🛒 МАГАЗИН")
-async def shop(message: types.Message):
-    await tg_api(BOT_TOKEN, "sendMessage", {
+@router.message(lambda msg: msg.text == "МАГАЗИН")
+async def shop(message: types.Message):    await tg_api(BOT_TOKEN, "sendMessage", {
         "chat_id": message.chat.id,
         "text": "📂 Выберите платформу:",
         "reply_markup": {"inline_keyboard": [
@@ -739,7 +766,7 @@ async def show_products_inline(call: types.CallbackQuery):
             InlineKeyboardButton(text=f"{name} — {price}₽", callback_data=f"buy_{product_id}", icon_custom_emoji_id="5226566554568660249")
         ])
     keyboard.inline_keyboard.append([
-        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories", icon_custom_emoji_id="5226566554568660249")
+        InlineKeyboardButton(text="Назад", callback_data="back_to_categories", icon_custom_emoji_id=E_BACK)
     ])
 
     await call.message.edit_text(f"📦 {category}:", reply_markup=keyboard)
@@ -784,7 +811,7 @@ async def show_products(message: types.Message):
             )
         ])
     keyboard.inline_keyboard.append([
-        InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_categories", icon_custom_emoji_id="5226566554568660249")
+        InlineKeyboardButton(text="Назад", callback_data="back_to_categories", icon_custom_emoji_id=E_BACK)
     ])
     
     await message.answer(
@@ -824,9 +851,9 @@ async def buy_product(call: types.CallbackQuery, state: FSMContext):
     rates_str = await get_rates(price)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Оплатить с баланса", callback_data=f"pay_balance:{product_id}",      icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="💳 Оплатить переводом", callback_data=f"pay_transfer:{product_id}:{days}", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад",              callback_data="back_to_categories",             icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="Оплатить с баланса", callback_data=f"pay_balance:{product_id}",         icon_custom_emoji_id=E_MONEY)],
+        [InlineKeyboardButton(text="Оплатить переводом", callback_data=f"pay_transfer:{product_id}:{days}", icon_custom_emoji_id=E_PAY)],
+        [InlineKeyboardButton(text="Назад",              callback_data="back_to_categories",                icon_custom_emoji_id=E_BACK)],
     ])
 
     await call.message.edit_text(
@@ -858,8 +885,8 @@ async def pay_with_balance(call: types.CallbackQuery, state: FSMContext):
 
     if balance < price:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup",           icon_custom_emoji_id="5226566554568660249")],
-            [InlineKeyboardButton(text="◀️ Назад",            callback_data=f"buy_{product_id}", icon_custom_emoji_id="5226566554568660249")],
+            [InlineKeyboardButton(text="Пополнить баланс", callback_data="topup",             icon_custom_emoji_id=E_MONEY)],
+            [InlineKeyboardButton(text="Назад",            callback_data=f"buy_{product_id}", icon_custom_emoji_id=E_BACK)],
         ])
         await call.message.edit_text(
             f"❌ Недостаточно средств!\n"
@@ -893,8 +920,8 @@ async def pay_with_transfer(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(product_id=product_id, price=price, name=name, days=days)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📤 Загрузить скриншот", callback_data="upload_purchase_screenshot", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="◀️ Назад к оплате",    callback_data=f"buy_{product_id}",          icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="Загрузить скриншот", callback_data="upload_purchase_screenshot", icon_custom_emoji_id=E_UPLOAD)],
+        [InlineKeyboardButton(text="Назад к оплате",    callback_data=f"buy_{product_id}",          icon_custom_emoji_id=E_BACK)],
     ])
 
     await call.message.edit_text(
@@ -916,7 +943,7 @@ async def request_purchase_screenshot(call: types.CallbackQuery):
     await call.message.edit_text(
         "📸 Отправьте скриншот оплаты одним фото:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Отмена", callback_data="back_to_main", icon_custom_emoji_id="5226566554568660249")]
+            [InlineKeyboardButton(text="Отмена", callback_data="back_to_main", icon_custom_emoji_id=E_CANCEL)]
         ])
     )
     await call.answer()
@@ -936,8 +963,8 @@ async def process_purchase_screenshot(message: types.Message, state: FSMContext)
     photo_file_id = message.photo[-1].file_id
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"✅ Подтвердить и выдать товар", callback_data=f"purchase_accept:{user_id}:{product_id}", icon_custom_emoji_id="5226566554568660249")],
-        [InlineKeyboardButton(text="❌ Отклонить",                   callback_data=f"purchase_reject:{user_id}",              icon_custom_emoji_id="5226566554568660249")],
+        [InlineKeyboardButton(text="Подтвердить и выдать товар", callback_data=f"purchase_accept:{user_id}:{product_id}", icon_custom_emoji_id=E_CHECK)],
+        [InlineKeyboardButton(text="Отклонить",                  callback_data=f"purchase_reject:{user_id}",              icon_custom_emoji_id=E_CROSS)],
     ])
 
     try:
@@ -957,7 +984,7 @@ async def process_purchase_screenshot(message: types.Message, state: FSMContext)
 
     await send_menu(
         message.chat.id,
-        f"{CHECK} Скриншот отправлен на проверку!\n"
+        f"{ICO_CHECK} Скриншот отправлен на проверку!\n"
         f"⏰ После подтверждения товар будет выдан автоматически.\n\n"
         f"По вопросам: @NorovK1ng"
     )
@@ -1056,7 +1083,7 @@ async def _complete_purchase(call, product_id, name, price, user_id, via_transfe
     try:
         await call.bot.send_message(user_id, text, parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔑 Запросить ключ", callback_data=f"request_key:{user_id}:{product_id}", icon_custom_emoji_id="5226566554568660249")]
+                [InlineKeyboardButton(text="Запросить ключ", callback_data=f"request_key:{user_id}:{product_id}", icon_custom_emoji_id=E_KEY)]
             ])
         )
     except:
@@ -1125,17 +1152,17 @@ async def topup_balance_callback(call: types.CallbackQuery):
         f"{PAYMENT_DETAILS}\n\n"
         f"💰 Текущий баланс: {db.get_user_balance(call.from_user.id)}₽",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📤 Отправить скриншот", callback_data="send_screenshot", icon_custom_emoji_id="5226566554568660249")],
-            [InlineKeyboardButton(text="🔙 Назад",              callback_data="back_to_main",    icon_custom_emoji_id="5226566554568660249")]
+            [InlineKeyboardButton(text="Отправить скриншот", callback_data="send_screenshot", icon_custom_emoji_id=E_UPLOAD)],
+            [InlineKeyboardButton(text="Назад",              callback_data="back_to_main",    icon_custom_emoji_id=E_BACK)]
         ])
     )
     await call.answer()
 
-@router.message(lambda msg: msg.text == "◀️ НАЗАД")
+@router.message(lambda msg: msg.text == "НАЗАД")
 async def back_to_main(message: types.Message):
     await send_menu(message.chat.id, "🏠 Главное меню")
 # ---------- ПРОФИЛЬ ----------
-@router.message(lambda msg: msg.text == "👤 ПРОФИЛЬ")
+@router.message(lambda msg: msg.text == "ПРОФИЛЬ")
 async def profile(message: types.Message):
     user_id = message.from_user.id
     user = db.get_user(user_id)
@@ -1161,16 +1188,16 @@ async def profile(message: types.Message):
         text += "🔑 У вас нет активных ключей"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 Пополнить баланс", callback_data="topup", icon_custom_emoji_id="5226566554568660249")]
+        [InlineKeyboardButton(text="Пополнить баланс", callback_data="topup", icon_custom_emoji_id=E_MONEY)]
     ])
     
     await message.answer(text, reply_markup=keyboard)
 
 # ---------- ПРОВЕРКА КЛЮЧА ----------
-@router.message(lambda msg: msg.text == "🔑 ПРОВЕРИТЬ МОЙ КЛЮЧ")
+@router.message(lambda msg: msg.text == "ПРОВЕРИТЬ МОЙ КЛЮЧ")
 async def check_key_button(message: types.Message, state: FSMContext):
     await state.set_state(KeyCheck.waiting_for_password)
-    await send_menu(message.chat.id, f"{KEY} Введите ваш ключ:")
+    await send_menu(message.chat.id, f"{ICO_KEY} Введите ваш ключ:")
 
 @router.message(KeyCheck.waiting_for_password)
 async def process_key_check(message: types.Message, state: FSMContext):
@@ -1187,42 +1214,42 @@ async def process_key_check(message: types.Message, state: FSMContext):
         if key_user_id == user_id:
             await send_menu(
                 message.chat.id,
-                f"{CHECK} <b>Ключ найден!</b>\n\n"
-                f"{KEY} Ключ: <code>{key}</code>\n"
-                f"{PROF} Владелец: @{message.from_user.username or 'Не указан'}\n"
+                f"{ICO_CHECK} <b>Ключ найден!</b>\n\n"
+                f"{ICO_KEY} Ключ: <code>{key}</code>\n"
+                f"{ICO_PROF} Владелец: @{message.from_user.username or 'Не указан'}\n"
                 f"📅 Действует до: {expiry_date}\n"
                 f"📊 Статус: {status}"
             )
         else:
             await send_menu(
                 message.chat.id,
-                f"{CROSS} Этот ключ не принадлежит вам!\n"
+                f"{ICO_CROSS} Этот ключ не принадлежит вам!\n"
                 f"Пожалуйста, введите свой пароль."
             )
     else:
         await send_menu(
             message.chat.id,
-            f"{CROSS} У вас нету ключа или он не добавлен в базу данных.\n"
+            f"{ICO_CROSS} У вас нету ключа или он не добавлен в базу данных.\n"
             f"Пожалуйста, приобретите ключ в магазине."
         )
     
     await state.clear()
 
 # ---------- ТЕХ.ПОДДЕРЖКА ----------
-@router.message(lambda msg: msg.text == "🔧 ТЕХ.ПОДДЕРЖКА")
+@router.message(lambda msg: msg.text == "ТЕХ.ПОДДЕРЖКА")
 async def support(message: types.Message):
     await send_menu(
         message.chat.id,
-        f"{PHONE} <b>Техническая поддержка</b>\n\n"
+        f"{ICO_SUPPORT} <b>Техническая поддержка</b>\n\n"
         f"По всем вопросам обращайтесь:\n"
         f"📱 Telegram: @NorovK1ng\n\n"
-        f"{MONEY} Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'"
+        f"{ICO_MONEY} Для пополнения баланса используйте кнопку 'ПОПОЛНИТЬ БАЛАНС'"
     )
 
 # ---------- ОТЗЫВЫ ----------
-@router.message(lambda msg: msg.text == "⭐ ОТЗЫВЫ")
+@router.message(lambda msg: msg.text == "ОТЗЫВЫ")
 async def reviews(message: types.Message):
-    await send_menu(message.chat.id, f"{STAR} <b>Отзывы</b>\n\n😔 Пока что нету отзывов.")
+    await send_menu(message.chat.id, f"{ICO_STAR} <b>Отзывы</b>\n\n😔 Пока что нету отзывов.")
 
 # ---------- АДМИН-КОМАНДЫ ----------
 @router.message(Command("add_balance"))
